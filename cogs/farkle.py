@@ -9,12 +9,15 @@ class Farkle(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.active_game = None
+        self.p1_total = 0
+        self.p2_total = 0
 
     @commands.command()
     async def rzut(self, ctx, opponent: discord.Member = None):
         if self.active_game is not None:
             await ctx.send("Gra już trwa! Użyj `8skończ`.")
             return
+
         self.active_game = ctx.channel.id
         await ctx.send("🎲 Start gry z botem!")
         player1 = ctx.author
@@ -63,27 +66,25 @@ class Farkle(commands.Cog):
         if not await choose_target():
             self.active_game = None
             return
-        p1_total = 0
-        p2_total = 0
+
+        self.p1_total = 0
+        self.p2_total = 0
 
         async def send_game_state():
             if not self.active_game:
                 return
             embed = discord.Embed(title=f"🎲 Farkle • Cel: {target_points} pkt", color=0x2b2d31)
-            embed.add_field(name=f"👤 {player1.display_name}", value=f"**{p1_total}** pkt", inline=True)
-            embed.add_field(name="🤖 Bot", value=f"**{p2_total}** pkt", inline=True)
+            embed.add_field(name=f"👤 {player1.display_name}", value=f"**{self.p1_total}** pkt", inline=True)
+            embed.add_field(name="🤖 Bot", value=f"**{self.p2_total}** pkt", inline=True)
             embed.add_field(name="🕹 Tura", value=player1.display_name, inline=False)
             await ctx.send(embed=embed)
 
         async def player_turn():
-            nonlocal p1_total
             points_this_turn = 0
             remaining_dice = 6
             turn_num = 1
             while self.active_game:
-                # Rzut kostkami – zwykłe 1-6
                 dice_values = [random.randint(1, 6) for _ in range(remaining_dice)]
-
                 if not has_scoring_combo(dice_values):
                     if self.active_game:
                         embed = discord.Embed(
@@ -94,7 +95,6 @@ class Farkle(commands.Cog):
                         await ctx.send(embed=embed)
                     return
 
-                # Czytelne wyświetlanie kostek
                 dice_display = " ".join([f"**{v}**" for v in dice_values])
                 embed = discord.Embed(
                     title=f"Rzut {turn_num} – {player1.display_name}",
@@ -127,7 +127,7 @@ class Farkle(commands.Cog):
                                 color=0x5865f2
                             )
                             await ctx.send(embed=embed)
-                            p1_total += points_this_turn
+                            self.p1_total += points_this_turn
                         return
 
                     reacted_emoji = str(reaction.emoji)
@@ -170,7 +170,7 @@ class Farkle(commands.Cog):
 
                     turn_num += 1
 
-                else:  # ❌ lub timeout
+                else:
                     if has_points:
                         points_this_turn += turn_points
 
@@ -189,63 +189,81 @@ class Farkle(commands.Cog):
                         color=0x00aa00
                     )
                     await ctx.send(embed=embed)
-                    p1_total += points_this_turn
+                    self.p1_total += points_this_turn
                     return
 
-async def bot_turn(self):
-    nonlocal p2_total
-    points_this_turn = 0
-    remaining_dice = 6
-    bot_rolls = []  # zbieramy rzuty do wyświetlenia
-
-    for turn in range(1, 4):  # maks 3 rzuty
-        if not self.active_game:
-            return
-
-        dice_values = [random.randint(1, 6) for _ in range(remaining_dice)]
-        bot_rolls.append(dice_values)  # zapisujemy rzut
-
-        if not has_scoring_combo(dice_values):
-            await ctx.send("🤖 Bot – Farkle! 😞")
-            return
-
-        counts = Counter(dice_values)
-        kept = set()
-        for num in range(6, 0, -1):
-            if counts[num] >= 3 or (num in [1, 5] and counts[num] > 0):
-                kept.add(num)
-
-        kept_list = [d for d in dice_values if d in kept]
-        turn_points, _ = calculate_points(kept_list)
-        points_this_turn += turn_points
-        remaining_dice -= len(kept_list)
-
-        # Wyświetlamy rzut bota – czytelnie
-        dice_display = " ".join([f"**{v}**" for v in dice_values])
-        embed = discord.Embed(
-            title=f"🤖 Bot – rzut {turn}",
-            description=f"Kostki: {dice_display}\n\n"
-                        f"+{turn_points} pkt w tym rzucie",
-            color=0x5865f2  # niebieski dla bota
-        )
-        await ctx.send(embed=embed)
-
-        await asyncio.sleep(1.5)  # małe opóźnienie, żeby gracz zdążył przeczytać
-
-        if remaining_dice == 0:
+        async def bot_turn():
+            points_this_turn = 0
             remaining_dice = 6
+            bot_rolls = []
 
-        # Decyzja o bankowaniu
-        if points_this_turn >= 700 or random.random() < 0.3:
-            break
+            for turn in range(1, 4):
+                if not self.active_game:
+                    return
 
-    p2_total += points_this_turn
-    embed = discord.Embed(
-        title="🤖 Bot kończy turę",
-        description=f"Bankuje **{points_this_turn}** pkt!\nRazem: **{p2_total}** pkt",
-        color=0x00aa00
-    )
-    await ctx.send(embed=embed)
+                dice_values = [random.randint(1, 6) for _ in range(remaining_dice)]
+                bot_rolls.append(dice_values)
+
+                if not has_scoring_combo(dice_values):
+                    await ctx.send("🤖 Bot – Farkle! 😞")
+                    return
+
+                counts = Counter(dice_values)
+                kept = set()
+                for num in range(6, 0, -1):
+                    if counts[num] >= 3 or (num in [1, 5] and counts[num] > 0):
+                        kept.add(num)
+
+                kept_list = [d for d in dice_values if d in kept]
+                turn_points, _ = calculate_points(kept_list)
+                points_this_turn += turn_points
+                remaining_dice -= len(kept_list)
+
+                dice_display = " ".join([f"**{v}**" for v in dice_values])
+                embed = discord.Embed(
+                    title=f"🤖 Bot – rzut {turn}",
+                    description=f"Kostki: {dice_display}\n\n"
+                                f"+{turn_points} pkt w tym rzucie",
+                    color=0x5865f2
+                )
+                await ctx.send(embed=embed)
+
+                await asyncio.sleep(1.5)
+
+                if remaining_dice == 0:
+                    remaining_dice = 6
+
+                if points_this_turn >= 700 or random.random() < 0.3:
+                    break
+
+            self.p2_total += points_this_turn
+            embed = discord.Embed(
+                title="🤖 Bot kończy turę",
+                description=f"Bankuje **{points_this_turn}** pkt!\nRazem: **{self.p2_total}** pkt",
+                color=0x00aa00
+            )
+            await ctx.send(embed=embed)
+
+        await send_game_state()
+        while self.active_game and self.p1_total < target_points and self.p2_total < target_points:
+            await player_turn()
+            if not self.active_game or self.p1_total >= target_points:
+                break
+            await bot_turn()
+            if not self.active_game or self.p2_total >= target_points:
+                break
+            await send_game_state()
+
+        if self.active_game:
+            winner = player1 if self.p1_total >= target_points else "Bot"
+            embed = discord.Embed(
+                title="🏆 KONIEC GRY!",
+                description=f"**Wygrywa {winner}!**\n\n{player1.display_name}: **{self.p1_total}** pkt\nBot: **{self.p2_total}** pkt",
+                color=0xffd700
+            )
+            await ctx.send(embed=embed)
+
+        self.active_game = None
 
     @commands.command(aliases=['stop'])
     async def skończ(self, ctx):
