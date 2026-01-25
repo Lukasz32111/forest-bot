@@ -192,51 +192,60 @@ class Farkle(commands.Cog):
                     p1_total += points_this_turn
                     return
 
-        async def bot_turn():
-            nonlocal p2_total
-            points_this_turn = 0
-            remaining_dice = 6
-            for _ in range(3):
-                if not self.active_game:
-                    return
-                dice_values = [random.randint(1, 6) for _ in range(remaining_dice)]
-                if not has_scoring_combo(dice_values):
-                    await ctx.send("🤖 Bot – Farkle!")
-                    return
-                counts = Counter(dice_values)
-                kept = set()
-                for num in range(6, 0, -1):
-                    if counts[num] >= 3 or (num in [1, 5] and counts[num] > 0):
-                        kept.add(num)
-                kept_list = [d for d in dice_values if d in kept]
-                turn_points, _ = calculate_points(kept_list)
-                points_this_turn += turn_points
-                remaining_dice -= len(kept_list)
-                if remaining_dice == 0:
-                    remaining_dice = 6
-                if points_this_turn >= 700 or random.random() < 0.3:
-                    break
-            p2_total += points_this_turn
-            await ctx.send(f"🤖 Bot bankuje **{points_this_turn}** pkt! Razem: **{p2_total}**")
+async def bot_turn(self):
+    nonlocal p2_total
+    points_this_turn = 0
+    remaining_dice = 6
+    bot_rolls = []  # zbieramy rzuty do wyświetlenia
 
-        await send_game_state()
-        while self.active_game and p1_total < target_points and p2_total < target_points:
-            await player_turn()
-            if not self.active_game or p1_total >= target_points:
-                break
-            await bot_turn()
-            if not self.active_game or p2_total >= target_points:
-                break
-            await send_game_state()
-        if self.active_game:
-            winner = player1 if p1_total >= target_points else "Bot"
-            embed = discord.Embed(
-                title="🏆 KONIEC GRY!",
-                description=f"**Wygrywa {winner}!**\n\n{player1.display_name}: **{p1_total}** pkt\nBot: **{p2_total}** pkt",
-                color=0xffd700
-            )
-            await ctx.send(embed=embed)
-        self.active_game = None
+    for turn in range(1, 4):  # maks 3 rzuty
+        if not self.active_game:
+            return
+
+        dice_values = [random.randint(1, 6) for _ in range(remaining_dice)]
+        bot_rolls.append(dice_values)  # zapisujemy rzut
+
+        if not has_scoring_combo(dice_values):
+            await ctx.send("🤖 Bot – Farkle! 😞")
+            return
+
+        counts = Counter(dice_values)
+        kept = set()
+        for num in range(6, 0, -1):
+            if counts[num] >= 3 or (num in [1, 5] and counts[num] > 0):
+                kept.add(num)
+
+        kept_list = [d for d in dice_values if d in kept]
+        turn_points, _ = calculate_points(kept_list)
+        points_this_turn += turn_points
+        remaining_dice -= len(kept_list)
+
+        # Wyświetlamy rzut bota – czytelnie
+        dice_display = " ".join([f"**{v}**" for v in dice_values])
+        embed = discord.Embed(
+            title=f"🤖 Bot – rzut {turn}",
+            description=f"Kostki: {dice_display}\n\n"
+                        f"+{turn_points} pkt w tym rzucie",
+            color=0x5865f2  # niebieski dla bota
+        )
+        await ctx.send(embed=embed)
+
+        await asyncio.sleep(1.5)  # małe opóźnienie, żeby gracz zdążył przeczytać
+
+        if remaining_dice == 0:
+            remaining_dice = 6
+
+        # Decyzja o bankowaniu
+        if points_this_turn >= 700 or random.random() < 0.3:
+            break
+
+    p2_total += points_this_turn
+    embed = discord.Embed(
+        title="🤖 Bot kończy turę",
+        description=f"Bankuje **{points_this_turn}** pkt!\nRazem: **{p2_total}** pkt",
+        color=0x00aa00
+    )
+    await ctx.send(embed=embed)
 
     @commands.command(aliases=['stop'])
     async def skończ(self, ctx):
