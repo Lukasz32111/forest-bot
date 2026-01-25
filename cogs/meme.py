@@ -11,10 +11,10 @@ class Meme(commands.Cog):
         """Losowy mem (głównie anglojęzyczne)   8meme"""
         await self._send_random_meme(ctx, subreddit=None)
 
-    @commands.command(name="polmeme", aliases=["memepl", "polskiememy", "mempl"])
-async def polmeme(self, ctx):
-    """Losowy polski mem   8polmeme   lub 8memepl"""
-    await self._send_random_meme(ctx, subreddit="Polska_jest_najlepsza")
+    @commands.command(name="polmeme", aliases=["memepl", "polskiememy", "mempl", "plmeme"])
+    async def polmeme(self, ctx):
+        """Losowy polski mem   8polmeme  albo 8memepl"""
+        await self._send_random_meme(ctx, subreddit="Polska_jest_najlepsza")
 
     async def _send_random_meme(self, ctx, subreddit=None):
         base_url = "https://meme-api.com/gimme"
