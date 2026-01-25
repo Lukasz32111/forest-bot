@@ -8,6 +8,8 @@ import os
 import shutil
 from collections import deque
 from collections import Counter
+import logging  # Dodaj to
+logging.getLogger('discord.client').setLevel(logging.ERROR)  # I to
 
 # Ręczne znalezienie i ustawienie ścieżki do ffmpeg
 ffmpeg_path = shutil.which("ffmpeg")
@@ -591,27 +593,3 @@ if not TOKEN:
     print("BŁĄD: Nie znaleziono zmiennej środowiskowej TOKEN! Dodaj ją w Variables na Railway.")
 else:
     bot.run(TOKEN)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
