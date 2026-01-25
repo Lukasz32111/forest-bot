@@ -55,6 +55,10 @@ class Pomoc(commands.Cog):
 
         embed.set_footer(text="Bot do Farkle + Muzyka YT • v1.0 • Użyj 8pomoc żeby wrócić")
         await ctx.send(embed=embed)
+        
+    @commands.command()
+    async def testpomoc(self, ctx):
+        await ctx.send("Cog pomoc żyje! Komenda testowa działa.")
 
 async def setup(bot):
     await bot.add_cog(Pomoc(bot))
