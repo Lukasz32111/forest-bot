@@ -124,15 +124,14 @@ class Pomoc(commands.Cog):
         embed4.add_field(
             name="Dodatkowe info",
             value=(
-                "• Testuj `8testpomoc` – sprawdza czy cog działa\n"
-                "• Bot ma włączone reakcje i embedy – jeśli coś nie działa, sprawdź uprawnienia\n"
-                "• Problemy? Napisz do twórcy bota"
+                "• Bot ma włączone reakcje i embedy\n"
+                "• Problemy? Napisz do twórcy"
             ),
             inline=False
         )
         pages.append(embed4)
 
         return pages
-        
+
 async def setup(bot):
     await bot.add_cog(Pomoc(bot))
