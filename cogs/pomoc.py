@@ -33,6 +33,11 @@ class Pomoc(commands.Cog):
             ("pomoc",      "Pokazuje właśnie tę listę komend"),
             ("meme",       "Wysyła losowego mema z reddita (r/memes, dankmemes itp.)"),
             ("memepl",     "Wysyła losowego polskiego mema (głównie r/Polska_jest_najlepsza)"),
+            ("kick",       "Wyrzuca użytkownika z serwera   @osoba [powód]"),
+            ("ban",        "Banuje użytkownika   @osoba [powód]"),
+            ("unban",      "Odbanowuje użytkownika   ID/@osoba [powód]"),
+            ("mute",       "Wycisza użytkownika na czas   @osoba czas [powód]"),
+            ("unmute",     "Zdejmuje wyciszenie   @osoba [powód]"),
         ]
 
         # Sortujemy alfabetycznie po nazwie komendy
