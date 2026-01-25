@@ -79,7 +79,6 @@ class Farkle(commands.Cog):
 
     @commands.command()
     async def rzut(self, ctx, opponent: discord.Member = None):
-        global active_game  # jeśli chcesz zachować global – możesz, ale lepiej self.active_game
         if self.active_game is not None:
             await ctx.send("Gra już trwa! Użyj `8skończ`.")
             return
@@ -151,12 +150,122 @@ class Farkle(commands.Cog):
                     if self.active_game:
                         await ctx.send(f"💀 **FARKLE od razu!** {player1.mention} – brak punktujących kostek w rzucie.")
                     return
-                # ... reszta player_turn (dice_parts, embed, reakcje, obsługa kept, calculate_points itd.)
-                # wklej tutaj całą swoją oryginalną logikę z player_turn – to jest długie, więc pomijam kopiowanie wszystkiego
-                # po prostu skopiuj z Twojego starego main.py fragment od "# Rzut" do końca player_turn
+                dice_parts = []
+                special_present = False
+                for value, name in roll_results:
+                    if name:
+                        special_present = True
+                        if "Fragle" in name or "Lu" in name or "Ci" in name or "Fer" in name:
+                            icon = "🔴"
+                        elif "Szczęśliwa" in name or "Niebiańskiego" in name or "Kurcząca" in name:
+                            icon = "🟢"
+                        elif "pecha" in name or "Niepopularna" in name:
+                            icon = "⚫"
+                        else:
+                            icon = "🟡"
+                        rarity = " 🌟" if "Fer" in name else ""
+                        dice_parts.append(f"{icon}`{name}{rarity}`\n{value}️⃣")
+                    else:
+                        dice_parts.append(f"{value}️⃣")
+                dice_row = "  ".join(dice_parts)
+                embed = discord.Embed(
+                    title=f"🎲 {player1.display_name} – Rzut {turn_num}",
+                    description=f"{dice_row}\n\n"
+                                f"**Pozostało kostek:** {remaining_dice}  **Punkty w turze:** {points_this_turn}",
+                    color=0x2b2d31
+                )
+                embed.set_footer(text="Kliknij numer → zachowaj | ✅ kontynuuj | ❌ bankuj | ℹ️ opis specjalnych")
+                msg = await ctx.send(embed=embed)
+                for d in set(dice_values):
+                    await msg.add_reaction(f'{d}️⃣')
+                await msg.add_reaction('✅')
+                await msg.add_reaction('❌')
+                if special_present:
+                    await msg.add_reaction('ℹ️')
+                kept = set()
+                def check(r, u):
+                    return u == player1 and r.message.id == msg.id and self.active_game
+                reacted_emoji = None
+                while self.active_game:
+                    try:
+                        reaction, _ = await self.bot.wait_for('reaction_add', timeout=90, check=check)
+                    except asyncio.TimeoutError:
+                        if self.active_game:
+                            await ctx.send(f"⏰ Timeout – bankuję {points_this_turn} pkt.")
+                            p1_total += points_this_turn
+                        return
+                    reacted_emoji = str(reaction.emoji)
+                    if reacted_emoji == 'ℹ️' and special_present:
+                        special_count = Counter([n for _, n in roll_results if n])
+                        info_lines = []
+                        for name, count in special_count.items():
+                            opis = OPISY_KOSCI.get(name, "Specjalna kość bez opisu.")
+                            count_str = f" (x{count})" if count > 1 else ""
+                            info_lines.append(f"**{name}{count_str}**\n{opis}")
+                        info_embed = discord.Embed(
+                            title="ℹ️ Specjalne kości z tego rzutu",
+                            description="\n\n".join(info_lines),
+                            color=0x2b2d31
+                        )
+                        await ctx.send(embed=info_embed, delete_after=30)
+                        continue
+                    if reacted_emoji[0].isdigit():
+                        num = int(reacted_emoji[0])
+                        if num in dice_values:
+                            kept.add(num)
+                    if reacted_emoji in ['✅', '❌']:
+                        break
+                kept_list = [d for d in dice_values if d in kept]
+                turn_points, has_points = calculate_points(kept_list)
+                if reacted_emoji == '✅':
+                    if not has_points:
+                        if self.active_game:
+                            await ctx.send(f"💀 **FARKLE!** {player1.mention}")
+                        return
+                    points_this_turn += turn_points
+                    remaining_dice -= len(kept_list)
+                    if self.active_game:
+                        await ctx.send(f"✅ +**{turn_points}** pkt → razem: **{points_this_turn}**")
+                    if remaining_dice == 0:
+                        await ctx.send("🔥 **HOT DICE!** Nowe 6 kostek!")
+                        remaining_dice = 6
+                    turn_num += 1
+                else:
+                    if has_points:
+                        points_this_turn += turn_points
+                    if points_this_turn == 0:
+                        await ctx.send(f"💀 **FARKLE!** {player1.mention}")
+                        return
+                    await ctx.send(f"✅ Bankujesz **{points_this_turn}** pkt!")
+                    p1_total += points_this_turn
+                    return
 
         async def bot_turn():
-            # ... wklej całą funkcję bot_turn z Twojego kodu
+            nonlocal p2_total
+            points_this_turn = 0
+            remaining_dice = 6
+            for _ in range(3):
+                if not self.active_game: return
+                roll_results = [roll_single_die() for _ in range(remaining_dice)]
+                dice_values = [v for v, _ in roll_results]
+                if not has_scoring_combo(dice_values):
+                    await ctx.send("🤖 Bot – Farkle!")
+                    return
+                counts = Counter(dice_values)
+                kept = set()
+                for num in range(6,0,-1):
+                    if counts[num] >= 3 or (num in [1,5] and counts[num] > 0):
+                        kept.add(num)
+                kept_list = [d for d in dice_values if d in kept]
+                turn_points, _ = calculate_points(kept_list)
+                points_this_turn += turn_points
+                remaining_dice -= len(kept_list)
+                if remaining_dice == 0:
+                    remaining_dice = 6
+                if points_this_turn >= 700 or random.random() < 0.3:
+                    break
+            p2_total += points_this_turn
+            await ctx.send(f"🤖 Bot bankuje **{points_this_turn}** pkt! Razem: **{p2_total}**")
 
         await send_game_state()
         while self.active_game and p1_total < target_points and p2_total < target_points:
