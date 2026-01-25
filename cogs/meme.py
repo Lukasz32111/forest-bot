@@ -7,8 +7,8 @@ class Meme(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(aliases=["meme", "mem", "śmieszne"])
-    async def meme(self, ctx):
+    @commands.command(name="losmeme", aliases=["meme", "mem", "śmieszne"])
+async def losmeme(self, ctx):
         """Wysyła losowego mema z reddita  8meme"""
         url = "https://meme-api.com/gimme"
 
