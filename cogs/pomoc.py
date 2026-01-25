@@ -6,7 +6,7 @@ class Pomoc(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(name="pomoc", aliases=["help", "h", "komendy", "commands"])
+    @commands.command(name="pomoc", aliases=["h", "cmds", "komendy"])
     async def pomoc(self, ctx):
         """Pokazuje listę wszystkich komend"""
         embed = discord.Embed(
