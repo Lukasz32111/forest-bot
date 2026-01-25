@@ -70,78 +70,124 @@ class Farkle(commands.Cog):
             embed.add_field(name="🕹 Tura", value=player1.display_name, inline=False)
             await ctx.send(embed=embed)
 
-        async def player_turn():
-            nonlocal p1_total
-            points_this_turn = 0
-            remaining_dice = 6
-            turn_num = 1
-            while self.active_game:
-                # Zwykły rzut – bez specjalnych kości
-                dice_values = [random.randint(1, 6) for _ in range(remaining_dice)]
-                if not has_scoring_combo(dice_values):
-                    if self.active_game:
-                        await ctx.send(f"💀 **FARKLE od razu!** {player1.mention} – brak punktujących kostek w rzucie.")
-                    return
+        async def player_turn(self):
+    nonlocal p1_total
+    points_this_turn = 0
+    remaining_dice = 6
+    turn_num = 1
 
-                # Prosty wyświetlacz kostek (bez ikon i nazw specjalnych)
-                dice_row = "  ".join([f"{value}️⃣" for value in dice_values])
+    while self.active_game:
+        # Rzut kostkami – zwykłe 1-6
+        dice_values = [random.randint(1, 6) for _ in range(remaining_dice)]
+
+        if not has_scoring_combo(dice_values):
+            if self.active_game:
                 embed = discord.Embed(
-                    title=f"🎲 {player1.display_name} – Rzut {turn_num}",
-                    description=f"{dice_row}\n\n"
-                                f"**Pozostało kostek:** {remaining_dice}  **Punkty w turze:** {points_this_turn}",
-                    color=0x2b2d31
+                    title="💀 FARKLE!",
+                    description=f"{player1.mention} – brak punktujących kombinacji w rzucie.",
+                    color=0xff0000  # czerwony
                 )
-                embed.set_footer(text="Kliknij numer → zachowaj | ✅ kontynuuj | ❌ bankuj")
-                msg = await ctx.send(embed=embed)
-                for d in set(dice_values):
-                    await msg.add_reaction(f'{d}️⃣')
-                await msg.add_reaction('✅')
-                await msg.add_reaction('❌')
+                await ctx.send(embed=embed)
+            return
 
-                kept = set()
-                def check(r, u):
-                    return u == player1 and r.message.id == msg.id and self.active_game
-                reacted_emoji = None
-                while self.active_game:
-                    try:
-                        reaction, _ = await self.bot.wait_for('reaction_add', timeout=90, check=check)
-                    except asyncio.TimeoutError:
-                        if self.active_game:
-                            await ctx.send(f"⏰ Timeout – bankuję {points_this_turn} pkt.")
-                            p1_total += points_this_turn
-                        return
-                    reacted_emoji = str(reaction.emoji)
-                    if reacted_emoji[0].isdigit():
-                        num = int(reacted_emoji[0])
-                        if num in dice_values:
-                            kept.add(num)
-                    if reacted_emoji in ['✅', '❌']:
-                        break
+        # Czytelne wyświetlanie kostek – jedna linia, z separatorami
+        dice_display = " ".join([f"**{v}**" for v in dice_values])
+        embed = discord.Embed(
+            title=f"Rzut {turn_num} – {player1.display_name}",
+            description=f"Kostki: {dice_display}\n\n"
+                        f"**Pozostało kostek:** {remaining_dice}   "
+                        f"**Punkty w tej turze:** {points_this_turn}",
+            color=0x2b2d31
+        )
+        embed.set_footer(text="Kliknij cyfrę aby zachować | ✅ kontynuuj | ❌ bankuj | ⏰ automat po 90 s")
+        msg = await ctx.send(embed=embed)
 
-                kept_list = [d for d in dice_values if d in kept]
-                turn_points, has_points = calculate_points(kept_list)
-                if reacted_emoji == '✅':
-                    if not has_points:
-                        if self.active_game:
-                            await ctx.send(f"💀 **FARKLE!** {player1.mention}")
-                        return
-                    points_this_turn += turn_points
-                    remaining_dice -= len(kept_list)
-                    if self.active_game:
-                        await ctx.send(f"✅ +**{turn_points}** pkt → razem: **{points_this_turn}**")
-                    if remaining_dice == 0:
-                        await ctx.send("🔥 **HOT DICE!** Nowe 6 kostek!")
-                        remaining_dice = 6
-                    turn_num += 1
-                else:
-                    if has_points:
-                        points_this_turn += turn_points
-                    if points_this_turn == 0:
-                        await ctx.send(f"💀 **FARKLE!** {player1.mention}")
-                        return
-                    await ctx.send(f"✅ Bankujesz **{points_this_turn}** pkt!")
+        # Reakcje tylko na obecne kostki
+        for d in set(dice_values):
+            await msg.add_reaction(f'{d}️⃣')
+        await msg.add_reaction('✅')
+        await msg.add_reaction('❌')
+
+        kept = set()
+        def check(r, u):
+            return u == player1 and r.message.id == msg.id and self.active_game
+
+        reacted_emoji = None
+        while self.active_game:
+            try:
+                reaction, _ = await self.bot.wait_for('reaction_add', timeout=90, check=check)
+            except asyncio.TimeoutError:
+                if self.active_game:
+                    embed = discord.Embed(
+                        title="⏰ Czas minął",
+                        description=f"Automatycznie bankuję **{points_this_turn}** punktów.",
+                        color=0x5865f2
+                    )
+                    await ctx.send(embed=embed)
                     p1_total += points_this_turn
-                    return
+                return
+
+            reacted_emoji = str(reaction.emoji)
+
+            if reacted_emoji[0].isdigit():
+                num = int(reacted_emoji[0])
+                if num in dice_values:
+                    kept.add(num)
+
+            if reacted_emoji in ['✅', '❌']:
+                break
+
+        kept_list = [d for d in dice_values if d in kept]
+        turn_points, has_points = calculate_points(kept_list)
+
+        if reacted_emoji == '✅':
+            if not has_points:
+                embed = discord.Embed(
+                    title="💀 FARKLE!",
+                    description=f"{player1.mention} – wybrana kombinacja nie daje punktów.",
+                    color=0xff0000
+                )
+                await ctx.send(embed=embed)
+                return
+
+            points_this_turn += turn_points
+            remaining_dice -= len(kept_list)
+
+            color = 0x00ff00 if turn_points > 300 else 0x2b2d31
+            embed = discord.Embed(
+                title=f"+{turn_points} punktów!",
+                description=f"**Razem w turze:** {points_this_turn}",
+                color=color
+            )
+            await ctx.send(embed=embed)
+
+            if remaining_dice == 0:
+                await ctx.send("🔥 **HOT DICE!** Rzucasz znowu 6 kostkami!")
+                remaining_dice = 6
+
+            turn_num += 1
+
+        else:  # ❌ lub timeout
+            if has_points:
+                points_this_turn += turn_points
+
+            if points_this_turn == 0:
+                embed = discord.Embed(
+                    title="💀 FARKLE!",
+                    description=f"{player1.mention} – nie zachowałeś nic punktującego.",
+                    color=0xff0000
+                )
+                await ctx.send(embed=embed)
+                return
+
+            embed = discord.Embed(
+                title="Bankujesz punkty",
+                description=f"**{points_this_turn}** punktów dodane do konta!",
+                color=0x00aa00
+            )
+            await ctx.send(embed=embed)
+            p1_total += points_this_turn
+            return
 
         async def bot_turn():
             nonlocal p2_total
