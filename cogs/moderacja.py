@@ -52,7 +52,7 @@ class Moderacja(commands.Cog):
         except Exception as e:
             await ctx.send(f"Błąd podczas bana: {e}")
 
-    @commands.command(aliases=["odbanuj", "unban"])
+    @commands.command(aliases=["odbanuj", "unbanuj", "odbani", "removeban"])
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True)
     async def unban(self, ctx, user: discord.User, *, reason: str = "Brak powodu"):
