@@ -7,7 +7,6 @@ class Moderacja(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # Sprawdza, czy wywołujący ma uprawnienia + bot ma wyższe role niż cel
     async def cog_command_error(self, ctx, error):
         if isinstance(error, commands.MissingPermissions):
             await ctx.send("Nie masz uprawnień do tej komendy.")
@@ -16,11 +15,11 @@ class Moderacja(commands.Cog):
         else:
             await ctx.send(f"Błąd: {error}")
 
-    @commands.command(aliases=["wyrzuć"])
+    @commands.command(name="wyrzuc", aliases=["wyrzuć", "wykop"])
     @commands.has_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True)
     async def kick(self, ctx, member: discord.Member, *, reason: str = "Brak powodu"):
-        """Wyrzuca użytkownika z serwera   8kick @osoba [powód]"""
+        """Wyrzuca użytkownika z serwera   8wyrzuc @osoba [powód]"""
         if member == ctx.author:
             return await ctx.send("Nie możesz wyrzucić samego siebie.")
         if member.top_role >= ctx.me.top_role:
@@ -30,15 +29,15 @@ class Moderacja(commands.Cog):
             await member.kick(reason=reason)
             await ctx.send(f"{member.mention} został wyrzucony.\nPowód: {reason}")
         except discord.Forbidden:
-            await ctx.send("Nie mam uprawnień do wyrzucenia tej osoby (moja rola jest za nisko?).")
+            await ctx.send("Nie mam uprawnień do wyrzucenia tej osoby.")
         except Exception as e:
-            await ctx.send(f"Błąd podczas kick: {e}")
+            await ctx.send(f"Błąd podczas wyrzucania: {e}")
 
-    @commands.command(aliases=["zbanuj", "banhammer"])
+    @commands.command(name="zbanuj", aliases=["banhammer", "zbanujgo"])
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True)
     async def ban(self, ctx, member: discord.Member, *, reason: str = "Brak powodu"):
-        """Banuje użytkownika   8ban @osoba [powód]"""
+        """Banuje użytkownika   8zbanuj @osoba [powód]"""
         if member == ctx.author:
             return await ctx.send("Nie możesz zbanować samego siebie.")
         if member.top_role >= ctx.me.top_role:
@@ -52,11 +51,11 @@ class Moderacja(commands.Cog):
         except Exception as e:
             await ctx.send(f"Błąd podczas bana: {e}")
 
-    @commands.command(aliases=["odbanuj", "unbanuj", "odbani", "removeban"])
+    @commands.command(name="odbanuj", aliases=["odbani", "unbanuj", "removeban"])
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True)
-    async def unban(self, ctx, user: discord.User, *, reason: str = "Brak powodu"):
-        """Odbanowuje użytkownika po ID lub @mention   8unban ID_lub_@osoba [powód]"""
+    async def odbanuj(self, ctx, user: discord.User, *, reason: str = "Brak powodu"):
+        """Odbanowuje użytkownika   8odbanuj ID_lub_@osoba [powód]"""
         try:
             await ctx.guild.unban(user, reason=reason)
             await ctx.send(f"{user.mention} ({user.id}) został odbanowany.\nPowód: {reason}")
@@ -67,13 +66,13 @@ class Moderacja(commands.Cog):
         except Exception as e:
             await ctx.send(f"Błąd: {e}")
 
-    @commands.command(aliases=["timeout", "wycisz", "zamknijgębę"])
+    @commands.command(name="wycisz", aliases=["zamknij", "timeoutpl"])
     @commands.has_permissions(moderate_members=True)
     @commands.bot_has_permissions(moderate_members=True)
-    async def mute(self, ctx, member: discord.Member, czas: str, *, reason: str = "Brak powodu"):
+    async def wycisz(self, ctx, member: discord.Member, czas: str, *, reason: str = "Brak powodu"):
         """
-        Wycisza użytkownika na określony czas   8mute @osoba 30m [powód]
-        Format czasu: liczba + jednostka (s, m, h, d) np. 45m, 2h, 1d
+        Wycisza użytkownika na określony czas   8wycisz @osoba 30m [powód]
+        Format: liczba + s/m/h/d   np. 45m, 2h, 1d
         """
         if member == ctx.author:
             return await ctx.send("Nie możesz wyciszyć samego siebie.")
@@ -82,23 +81,23 @@ class Moderacja(commands.Cog):
 
         try:
             duration = self.parse_duration(czas)
-            if duration.total_seconds() <= 0 or duration.total_seconds() > 2419200:  # max 28 dni
+            if duration.total_seconds() <= 0 or duration.total_seconds() > 2419200:
                 return await ctx.send("Czas musi być między 1 sekundą a 28 dniami.")
 
             await member.timeout(duration, reason=reason)
             await ctx.send(f"{member.mention} został wyciszony na {czas}.\nPowód: {reason}")
         except discord.Forbidden:
-            await ctx.send("Nie mam uprawnień do timeoutu tej osoby.")
+            await ctx.send("Nie mam uprawnień do wyciszenia tej osoby.")
         except ValueError:
             await ctx.send("Nieprawidłowy format czasu. Przykład: 30m, 2h, 1d")
         except Exception as e:
-            await ctx.send(f"Błąd podczas mute: {e}")
+            await ctx.send(f"Błąd podczas wyciszania: {e}")
 
-    @commands.command(aliases=["unmute", "odcisz"])
+    @commands.command(name="odcisz", aliases=["untimeout", "odmute", "odblokujgłos"])
     @commands.has_permissions(moderate_members=True)
     @commands.bot_has_permissions(moderate_members=True)
-    async def unmute(self, ctx, member: discord.Member, *, reason: str = "Brak powodu"):
-        """Zdejmuje timeout   8unmute @osoba [powód]"""
+    async def odcisz(self, ctx, member: discord.Member, *, reason: str = "Brak powodu"):
+        """Zdejmuje wyciszenie   8odcisz @osoba [powód]"""
         if member.timed_out_until is None:
             return await ctx.send(f"{member.mention} nie jest wyciszony.")
 
@@ -106,7 +105,7 @@ class Moderacja(commands.Cog):
             await member.timeout(None, reason=reason)
             await ctx.send(f"{member.mention} został odciszony.\nPowód: {reason}")
         except discord.Forbidden:
-            await ctx.send("Nie mam uprawnień do zdjęcia timeoutu.")
+            await ctx.send("Nie mam uprawnień do zdjęcia wyciszenia.")
         except Exception as e:
             await ctx.send(f"Błąd: {e}")
 
