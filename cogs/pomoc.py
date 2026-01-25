@@ -1,65 +1,138 @@
 # cogs/pomoc.py
 from discord.ext import commands
 import discord
+import asyncio
 
 class Pomoc(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(name="pomoc", aliases=["h", "cmds", "komendy"])
+    @commands.command(name="pomoc", aliases=["h", "komendy"])
     async def pomoc(self, ctx):
-        """Pokazuje listę wszystkich komend"""
-        embed = discord.Embed(
-            title="📚 Pomoc – podstawowe komendy",
-            description="Prefix: **8**   |   Wszystkie komendy zaczynają się od ósemki\n\nPełna lista wkrótce w rozbudowanej wersji",
+        pages = self.get_pages()
+        current_page = 0
+
+        msg = await ctx.send(embed=pages[current_page])
+
+        # Dodajemy strzałki tylko jeśli jest więcej niż jedna strona
+        if len(pages) > 1:
+            await msg.add_reaction("◀️")
+            await msg.add_reaction("▶️")
+
+        def check(reaction, user):
+            return (
+                user == ctx.author
+                and str(reaction.emoji) in ["◀️", "▶️"]
+                and reaction.message.id == msg.id
+            )
+
+        while True:
+            try:
+                reaction, _ = await self.bot.wait_for(
+                    "reaction_add", timeout=120.0, check=check
+                )
+
+                if str(reaction.emoji) == "▶️" and current_page < len(pages) - 1:
+                    current_page += 1
+                    await msg.edit(embed=pages[current_page])
+
+                elif str(reaction.emoji) == "◀️" and current_page > 0:
+                    current_page -= 1
+                    await msg.edit(embed=pages[current_page])
+
+                # Usuwamy reakcję użytkownika (żeby mógł znowu kliknąć)
+                await msg.remove_reaction(reaction.emoji, ctx.author)
+
+            except asyncio.TimeoutError:
+                # Po 2 minutach usuwamy strzałki
+                try:
+                    await msg.clear_reactions()
+                except:
+                    pass
+                break
+
+    def get_pages(self):
+        """Zwraca listę embedów – każda strona to jeden embed"""
+        pages = []
+
+        # Strona 1 – wstęp + Muzyka
+        embed1 = discord.Embed(
+            title="📚 Pomoc – strona 1/4",
+            description="Prefix: **8**   |   Używaj strzałek ◀️ ▶️ do przełączania",
             color=0x5865f2
         )
-
-        if self.bot.user.avatar:
-            embed.set_thumbnail(url=self.bot.user.avatar.url)
-
-        embed.add_field(
-            name="🎲 Gra w Farkle",
-            value="`8rzut` – nowa gra vs bot\n`8skończ` – kończy grę",
-            inline=False
-        )
-
-        embed.add_field(
+        embed1.add_field(
             name="🎵 Muzyka z YouTube",
             value=(
-                "`8dołącz` – bot dołącza do kanału głosowego\n"
-                "`8opuść` – bot wychodzi\n"
-                "`8graj <nazwa/link>` – puszcza piosenkę\n"
-                "`8skip` – pomija\n"
-                "`8pauza` / `8wznów` – pauza / wznowienie\n"
-                "`8kolejka` – pokazuje kolejkę\n"
-                "`8podobne` – podobny utwór do ostatniego\n"
-                "`8poprzedni` – wraca do poprzedniego\n"
-                "`8zakończ` – zatrzymuje muzykę i czyści kolejkę"
+                "`dołącz` – dołącza do kanału głosowego\n"
+                "`opuść` – wychodzi z kanału\n"
+                "`graj <nazwa/link>` – dodaje i odtwarza\n"
+                "`skip` – pomija utwór\n"
+                "`poprzedni` – wraca do poprzedniego\n"
+                "`pauza` / `wznów` – pauza / wznowienie\n"
+                "`kolejka` – pokazuje kolejkę\n"
+                "`podobne` – podobny utwór do ostatniego\n"
+                "`zakończ` – zatrzymuje i czyści kolejkę"
             ),
             inline=False
         )
+        pages.append(embed1)
 
-        embed.add_field(
+        # Strona 2 – Farkle + Memy
+        embed2 = discord.Embed(
+            title="📚 Pomoc – strona 2/4",
+            description="Prefix: **8**   |   ◀️ ▶️ do nawigacji",
+            color=0x5865f2
+        )
+        embed2.add_field(
+            name="🎲 Farkle",
+            value="`rzut` – zaczyna nową grę vs bot\n`skończ` – kończy aktualną grę",
+            inline=False
+        )
+        embed2.add_field(
             name="😂 Memy",
-            value="`8meme` – losowy mem (głównie anglo)\n`8polmeme` – losowy polski mem",
+            value="`meme` – losowy mem (głównie anglojęzyczne)\n`polmeme` – losowy polski mem",
             inline=False
         )
+        pages.append(embed2)
 
-        embed.add_field(
-            name="🛡️ Moderacja (dla uprawnionych)",
+        # Strona 3 – Moderacja
+        embed3 = discord.Embed(
+            title="📚 Pomoc – strona 3/4",
+            description="Prefix: **8**   |   ◀️ ▶️ do nawigacji",
+            color=0x5865f2
+        )
+        embed3.add_field(
+            name="🛡️ Moderacja (wymaga uprawnień)",
             value=(
-                "`8wyrzuc @osoba [powód]` – kick\n"
-                "`8zbanuj @osoba [powód]` – ban\n"
-                "`8odbanuj ID/@osoba [powód]` – odbanuj\n"
-                "`8wycisz @osoba czas [powód]` – wycisza (np. 30m, 2h, 1d)\n"
-                "`8odcisz @osoba [powód]` – zdejmuje wyciszenie"
+                "`wyrzuc @osoba [powód]` – wyrzuca z serwera\n"
+                "`zbanuj @osoba [powód]` – banuje\n"
+                "`odbanuj ID/@osoba [powód]` – odbanowuje\n"
+                "`wycisz @osoba czas [powód]` – timeout (np. 30m, 2h)\n"
+                "`odcisz @osoba [powód]` – zdejmuje timeout"
             ),
             inline=False
         )
+        pages.append(embed3)
 
-        embed.set_footer(text="Bot Seby • Farkle + Muzyka + Memy + Moderacja • v1.0 • 8testpomoc – sprawdź cog")
-        await ctx.send(embed=embed)
+        # Strona 4 – informacje dodatkowe
+        embed4 = discord.Embed(
+            title="📚 Pomoc – strona 4/4",
+            description="Prefix: **8**   |   Koniec listy",
+            color=0x5865f2
+        )
+        embed4.add_field(
+            name="Dodatkowe info",
+            value=(
+                "• Testuj `8testpomoc` – sprawdza czy cog działa\n"
+                "• Bot ma włączone reakcje i embedy – jeśli coś nie działa, sprawdź uprawnienia\n"
+                "• Problemy? Napisz do twórcy bota"
+            ),
+            inline=False
+        )
+        pages.append(embed4)
+
+        return pages
 
     @commands.command()
     async def testpomoc(self, ctx):
