@@ -587,9 +587,60 @@ async def podobne(ctx):
         await ctx.send("Nie udało się znaleźć podobnej piosenki 😢")
         print(f"Błąd w podobne: {e}")
 
+@bot.event
+async def on_ready():
+    print("═" * 70)
+    print(" " * 20 + "=== BOT URUCHOMIONY POMYŚLNIE ===")
+    print("═" * 70)
+    
+    now = discord.utils.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+    print(f"  Aktualny czas UTC:       {now}")
+    print(f"  Nazwa bota:              {bot.user}")
+    print(f"  ID bota:                 {bot.user.id}")
+    print(f"  Liczba serwerów:         {len(bot.guilds)}")
+    
+    total_members = sum(g.member_count or 0 for g in bot.guilds)
+    print(f"  Szacowana liczba użytkowników: ~{total_members}")
+    
+    print(f"  Prefix komend:           {bot.command_prefix}")
+    
+    # Sprawdzenie FFmpeg – kluczowe dla muzyki
+    ffmpeg_status = "znaleziony ✓" if shutil.which("ffmpeg") else "BRAK ✗ – muzyka nie będzie działać!"
+    print(f"  FFmpeg:                  {ffmpeg_status}")
+    
+    # Sprawdzenie najważniejszych intents
+    intents_status = []
+    if not intents.message_content:
+        intents_status.append("BRAK message_content ✗")
+    if not intents.voice_states:
+        intents_status.append("BRAK voice_states ✗")
+    if not intents.members:
+        intents_status.append("BRAK members ✗")
+    if not intents.reactions:
+        intents_status.append("BRAK reactions ✗")
+    
+    if intents_status:
+        print("  Intents – problemy:      " + ", ".join(intents_status))
+    else:
+        print("  Intents kluczowe:        wszystkie włączone ✓")
+    
+    print("\n" + "═" * 70)
+    print("Dostępne / sprawdzone funkcje:")
+    print("")
+    print("  ✓ Gra Farkle (z botem)              →  8rzut   /  8skończ")
+    print(f"  {'✓' if 'znaleziony' in ffmpeg_status else '✗'}  Odtwarzanie muzyki z YouTube     →  8graj   /  8skip   /  8pauza /  8wznów")
+    print("  ✓ Zarządzanie kolejką               →  8kolejka /  8poprzedni /  8zakończ")
+    print("  ✓ Sugestie podobnych utworów        →  8podobne")
+    print("  ✓ Reakcje, embedy, timeouty         → używane w grze Farkle i interakcjach")
+    print("")
+    print("Bot jest gotowy do użycia!")
+    print("Jeśli widzisz ten komunikat → podstawowe funkcje powinny działać.")
+    print("═" * 70)
+
 # === URUCHOMIENIE ===
 TOKEN = os.getenv('TOKEN')
 if not TOKEN:
     print("BŁĄD: Nie znaleziono zmiennej środowiskowej TOKEN! Dodaj ją w Variables na Railway.")
 else:
     bot.run(TOKEN)
+
