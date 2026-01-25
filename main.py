@@ -32,6 +32,7 @@ async def on_ready():
 async def load_cogs():
     await bot.load_extension("cogs.farkle")
     await bot.load_extension("cogs.music")
+    await bot.load_extension("cogs.pomoc")
     print("Cogi załadowane pomyślnie")
 
 @bot.event
@@ -47,3 +48,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
