@@ -18,14 +18,31 @@ bot = commands.Bot(command_prefix=PREFIX, intents=INTENTS)
 @bot.event
 async def on_ready():
     ffmpeg_ok = shutil.which("ffmpeg") is not None
+    
     print("══════════════════════════════════════════════════════════════════════")
-    print("                BOT URUCHOMIONY POMYŚLNIE")
+    print(" BOT URUCHOMIONY POMYŚLNIE")
     print("══════════════════════════════════════════════════════════════════════")
-    print(f"  Bot:            {bot.user}")
-    print(f"  Serwery:        {len(bot.guilds)}")
-    print(f"  Prefix:         {PREFIX}")
-    print(f"  FFmpeg:         {'znaleziony ✓' if ffmpeg_ok else 'BRAK ✗ – muzyka nie będzie działać!'}")
-    print("  Cogi:           farkle, music")
+    print(f" Bot: {bot.user}")
+    print(f" Serwery: {len(bot.guilds)}")
+    print(f" Prefix: {PREFIX}")
+    print(f" FFmpeg: {'znaleziony ✓' if ffmpeg_ok else 'BRAK ✗ – muzyka nie będzie działać!'}")
+    
+    # ────────────── DIAGNOSTYKA ──────────────
+    print("\nZaładowane komendy (powinno być min. 1–2):")
+    cmd_names = [c.name for c in bot.commands]
+    print(", ".join(sorted(cmd_names)) if cmd_names else "ŻADNA KOMENDA NIE ZOSTAŁA ZAREJESTROWANA")
+    
+    if "pomoc" in cmd_names:
+        print("→ KOMENDA 'pomoc' JEST ZAREJESTROWANA ✓")
+    else:
+        print("→ KOMENDA 'pomoc' NIE JEST ZAREJESTROWANA !!!")
+    
+    if "testpomoc" in cmd_names:
+        print("→ KOMENDA 'testpomoc' JEST ZAREJESTROWANA ✓")
+    else:
+        print("→ KOMENDA 'testpomoc' NIE JEST ZAREJESTROWANA !!!")
+    # ──────────────────────────────────────────
+    
     print("══════════════════════════════════════════════════════════════════════")
     print("Gotowy! Testuj komendy 8rzut i 8graj")
 
@@ -50,6 +67,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
