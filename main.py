@@ -6,6 +6,7 @@ import logging
 import asyncio
 import shutil
 
+# wyciszenie logów discord
 logging.getLogger('discord').setLevel(logging.WARNING)
 logging.getLogger('discord.client').setLevel(logging.ERROR)
 logging.getLogger('discord.gateway').setLevel(logging.WARNING)
@@ -20,14 +21,18 @@ async def on_ready():
     print("══════════════════════════════════════════════════════════════════════")
     print("                BOT URUCHOMIONY POMYŚLNIE")
     print("══════════════════════════════════════════════════════════════════════")
-    print(f"  Bot: {bot.user} | Serwery: {len(bot.guilds)} | Prefix: {PREFIX}")
-    print(f"  FFmpeg: {'OK ✓' if ffmpeg_ok else 'BRAK ✗'}")
-    print("  Załadowane cogi: farkle, music")
+    print(f"  Bot:            {bot.user}")
+    print(f"  Serwery:        {len(bot.guilds)}")
+    print(f"  Prefix:         {PREFIX}")
+    print(f"  FFmpeg:         {'znaleziony ✓' if ffmpeg_ok else 'BRAK ✗ – muzyka nie będzie działać!'}")
+    print("  Cogi:           farkle, music")
     print("══════════════════════════════════════════════════════════════════════")
+    print("Gotowy! Testuj komendy 8rzut i 8graj")
 
 async def load_cogs():
     await bot.load_extension("cogs.farkle")
     await bot.load_extension("cogs.music")
+    print("Cogi załadowane pomyślnie")
 
 @bot.event
 async def setup_hook():
@@ -36,7 +41,7 @@ async def setup_hook():
 async def main():
     token = os.getenv("TOKEN")
     if not token:
-        print("Brak TOKEN!")
+        print("BŁĄD: Nie znaleziono zmiennej środowiskowej TOKEN! Dodaj ją w Variables na Railway.")
         return
     await bot.start(token)
 
