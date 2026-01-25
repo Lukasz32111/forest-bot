@@ -9,15 +9,18 @@ class Farkle(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.active_game = None
-
-    @commands.command()
+        
+@commands.command()
     async def rzut(self, ctx, opponent: discord.Member = None):
-        if self.active_game is not None:
+        if self.active_game is not None:                  
             await ctx.send("Gra już trwa! Użyj `8skończ`.")
             return
-        self.active_game = ctx.channel.id
-        await ctx.send("🎲 Start gry z botem!")
-        player1 = ctx.author
+        self.active_game = ctx.channel.id                 
+        await ctx.send("🎲 Start gry z botem!")           
+        player1 = ctx.author                              
+
+        async def choose_target():                        
+            nonlocal target_points                        
 
         async def choose_target():
             nonlocal target_points
