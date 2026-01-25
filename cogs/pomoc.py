@@ -133,10 +133,6 @@ class Pomoc(commands.Cog):
         pages.append(embed4)
 
         return pages
-
-    @commands.command()
-    async def testpomoc(self, ctx):
-        await ctx.send("Cog pomoc żyje! Komenda testowa działa.")
-
+        
 async def setup(bot):
     await bot.add_cog(Pomoc(bot))
