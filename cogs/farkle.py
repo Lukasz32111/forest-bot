@@ -17,7 +17,6 @@ class Farkle(commands.Cog):
         if self.active_game is not None:
             await ctx.send("Gra już trwa! Użyj `8skończ`.")
             return
-
         self.active_game = ctx.channel.id
         await ctx.send("🎲 Start gry z botem!")
         player1 = ctx.author
@@ -195,9 +194,9 @@ class Farkle(commands.Cog):
         async def bot_turn():
             points_this_turn = 0
             remaining_dice = 6
-            bot_rolls = []
+            bot_rolls = []  # zbieramy rzuty do wyświetlenia
 
-            for turn in range(1, 4):
+            for turn in range(1, 5):  # maks 4 rzuty – ludzie czasem grają dłużej
                 if not self.active_game:
                     return
 
@@ -209,34 +208,68 @@ class Farkle(commands.Cog):
                     return
 
                 counts = Counter(dice_values)
+
+                # Ludzkie błędy: czasem bot nie bierze wszystkiego co mógłby
                 kept = set()
                 for num in range(6, 0, -1):
-                    if counts[num] >= 3 or (num in [1, 5] and counts[num] > 0):
+                    if counts[num] >= 3:
                         kept.add(num)
+                    elif num in [1, 5] and counts[num] > 0:
+                        # Czasem pomija pojedyncze 1 lub 5 (ludzie często tak robią)
+                        if random.random() < 0.35:  # 35% szansy na pominięcie
+                            continue
+                        kept.add(num)
+
+                # Czasem bot bierze tylko jedną kostkę zamiast wszystkich możliwych
+                if random.random() < 0.20:  # 20% szansy na głupi wybór
+                    if kept:
+                        kept = {random.choice(list(kept))}
 
                 kept_list = [d for d in dice_values if d in kept]
                 turn_points, _ = calculate_points(kept_list)
                 points_this_turn += turn_points
                 remaining_dice -= len(kept_list)
 
+                # Pokazujemy rzut bota – czytelnie
                 dice_display = " ".join([f"**{v}**" for v in dice_values])
                 embed = discord.Embed(
                     title=f"🤖 Bot – rzut {turn}",
                     description=f"Kostki: {dice_display}\n\n"
-                                f"+{turn_points} pkt w tym rzucie",
-                    color=0x5865f2
+                                f"+{turn_points} pkt w tym rzucie\n"
+                                f"**Razem w turze:** {points_this_turn}",
+                    color=0x5865f2  # niebieski dla bota
                 )
                 await ctx.send(embed=embed)
 
-                await asyncio.sleep(1.5)
+                await asyncio.sleep(random.uniform(1.2, 2.8))  # losowe opóźnienie jak człowiek myśli
 
                 if remaining_dice == 0:
                     remaining_dice = 6
 
-                if points_this_turn >= 700 or random.random() < 0.3:
+                # Ludzkie decyzje o bankowaniu
+                if points_this_turn == 0:
+                    # Przy 0 pkt prawie zawsze kontynuuje (ludzie nie lubią farklować od razu)
+                    continue
+
+                # Prawdopodobieństwo bankowania w zależności od punktów
+                if points_this_turn < 200:
+                    bank_chance = 0.05   # prawie nigdy
+                elif points_this_turn < 400:
+                    bank_chance = 0.25   # czasem
+                elif points_this_turn < 700:
+                    bank_chance = 0.55   # często
+                else:
+                    bank_chance = 0.80   # prawie zawsze, ale czasem ryzykuje
+
+                # Dodatkowy czynnik „strach” przy małej liczbie kostek i wysokich punktach
+                if remaining_dice <= 2 and points_this_turn > 300:
+                    bank_chance += 0.30
+
+                if random.random() < bank_chance:
                     break
 
             self.p2_total += points_this_turn
+
             embed = discord.Embed(
                 title="🤖 Bot kończy turę",
                 description=f"Bankuje **{points_this_turn}** pkt!\nRazem: **{self.p2_total}** pkt",
