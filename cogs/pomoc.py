@@ -78,7 +78,7 @@ class Pomoc(commands.Cog):
         )
         pages.append(embed1)
 
-        # Strona 2 – Farkle + Memy
+        # Strona 2 – Farkle + Memy   ← TU ZMIANA
         embed2 = discord.Embed(
             title="📚 Pomoc – strona 2/4",
             description="Prefix: **8**   |   ◀️ ▶️ do nawigacji",
@@ -86,7 +86,12 @@ class Pomoc(commands.Cog):
         )
         embed2.add_field(
             name="🎲 Farkle",
-            value="`rzut` – zaczyna nową grę vs bot\n`skończ` – kończy aktualną grę",
+            value=(
+                "`rzut [@osoba]` – zaczyna nową grę\n"
+                "  • bez @ – grasz z botem\n"
+                "  • z @ – grasz z inną osobą (1v1)\n"
+                "`skończ` – przerywa aktualną grę"
+            ),
             inline=False
         )
         embed2.add_field(
