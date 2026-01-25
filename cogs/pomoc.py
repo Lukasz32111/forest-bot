@@ -32,6 +32,7 @@ class Pomoc(commands.Cog):
             ("zakończ",    "Zatrzymuje muzykę i czyści kolejkę"),
             ("pomoc",      "Pokazuje właśnie tę listę komend"),
             ("meme",       "Wysyła losowego mema z reddita (r/memes, dankmemes itp.)"),
+            ("memepl",     "Wysyła losowego polskiego mema (głównie r/Polska_jest_najlepsza)"),
         ]
 
         # Sortujemy alfabetycznie po nazwie komendy
