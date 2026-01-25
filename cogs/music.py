@@ -3,11 +3,12 @@ import discord
 from discord.ext import commands
 import yt_dlp
 import asyncio
-from collections import deque
 import random
+from collections import deque
 
 from config import YTDL_FORMAT_OPTIONS, FFMPEG_OPTIONS, MAX_HISTORY
 
+# Używamy YT-DLP z config – nie definiujemy ponownie!
 ytdl = yt_dlp.YoutubeDL(YTDL_FORMAT_OPTIONS)
 
 class YTDLSource(discord.PCMVolumeTransformer):
@@ -35,6 +36,7 @@ class Music(commands.Cog):
         vc = ctx.guild.voice_client
         if not vc or not vc.is_connected():
             return
+
         if ctx.guild.id in self.queue and self.queue[ctx.guild.id]:
             next_song = self.queue[ctx.guild.id][0]
             try:
