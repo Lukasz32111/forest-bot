@@ -135,6 +135,7 @@ class Pomoc(commands.Cog):
             value=(
                 "• Bot ma włączone reakcje i embedy\n"
                 "• Problemy? Napisz do twórcy"
+                "`ankieta \"Pytanie?\" \"Opcja1\" \"Opcja2\" \"Opcja3\"` – tworzy ankietę z reakcjami\n"
             ),
             inline=False
         )
