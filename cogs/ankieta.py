@@ -1,6 +1,6 @@
 # cogs/farkle.py
 @commands.command(name="ankieta", aliases=["poll", "głosowanie", "sonda"])
-    async def ankieta(self, ctx, *, pytanie_i_opcje: str):
+async def ankieta(self, ctx, *, pytanie_i_opcje: str):
         """
         Tworzy ankietę z reakcjami
         Przykład: 8ankieta "Która pizza?" "Pepperoni" "Margherita" "Hawaje"
