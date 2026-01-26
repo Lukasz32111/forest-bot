@@ -115,6 +115,9 @@ class Pomoc(commands.Cog):
                 "`odbanuj ID [powód]` – odbanowuje\n"
                 "`wycisz @osoba czas [powód]` – timeout (np. 30m, 2h)\n"
                 "`odcisz @osoba [powód]` – zdejmuje timeout"
+                "`ostrzeżenie @osoba [powód]` – daje ostrzeżenie\n"
+                "`ostrzeżenia [@osoba]` – pokazuje ostrzeżenia danej osoby\n"
+                "`usuńostrzeżenie @osoba [numer]` – usuwa ostrzeżenie (ostatnie lub konkretne)\n"
             ),
             inline=False
         )
