@@ -1,4 +1,7 @@
-# cogs/ankieta.py
+import discord
+from discord.ext import commands
+import asyncio
+
 @commands.command(name="ankieta", aliases=["poll", "głosowanie", "sonda"])
 async def ankieta(self, ctx, *, pytanie_i_opcje: str):
         """
