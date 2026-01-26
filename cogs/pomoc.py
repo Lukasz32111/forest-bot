@@ -143,7 +143,7 @@ embed5.add_field(
 )
 pages.append(embed5)
 
-        return pages
+return pages
 
 async def setup(bot):
     await bot.add_cog(Pomoc(bot))
