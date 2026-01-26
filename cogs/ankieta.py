@@ -2,8 +2,12 @@ import discord
 from discord.ext import commands
 import asyncio
 
-@commands.command(name="ankieta", aliases=["poll", "głosowanie", "sonda"])
-async def ankieta(self, ctx, *, pytanie_i_opcje: str):
+class Ankieta(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    @commands.command(name="ankieta", aliases=["poll", "głosowanie", "sonda"])
+    async def ankieta(self, ctx, *, pytanie_i_opcje: str):
         """
         Tworzy ankietę z reakcjami
         Przykład: 8ankieta "Która pizza?" "Pepperoni" "Margherita" "Hawaje"
