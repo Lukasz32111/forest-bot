@@ -1,4 +1,4 @@
-# cogs/farkle.py
+# cogs/ankieta.py
 @commands.command(name="ankieta", aliases=["poll", "głosowanie", "sonda"])
 async def ankieta(self, ctx, *, pytanie_i_opcje: str):
         """
