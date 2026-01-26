@@ -75,13 +75,16 @@ class Ankieta(commands.Cog):
                     await msg.edit(embed=embed)
                     break
 
-                # Pokazanie kto głosował (tylko po kliknięciu 👥)
+                # Pokazanie kto głosował (w DM z pełną nazwą opcji)
                 if emoji_str == "👥":
-                    if voted_users:  # lista istnieje tylko jeśli ktoś już zagłosował
+                    if voted_users:
                         lista = []
                         for em, usr_set in voters.items():
                             if usr_set:
-                                lista.append(f"{em} → {', '.join([f'<@{u}>' for u in usr_set])}")
+                                # Znajdujemy indeks opcji dla tego emoji
+                                idx = emojis.index(em)
+                                opcja_nazwa = opcje[idx]
+                                lista.append(f"{em} ({opcja_nazwa}) → {', '.join([f'<@{u}>' for u in usr_set])}")
                         if lista:
                             lista_txt = "\n".join(lista)
                             await user.send(f"**Głosy w ankiecie:** {pytanie}\n\n{lista_txt}")
