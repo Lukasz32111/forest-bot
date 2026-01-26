@@ -131,19 +131,19 @@ class Pomoc(commands.Cog):
     color=0x5865f2
 )
 embed5.add_field(
-    name="🎉 Ankiety i zabawy",
-    value=(
-        "`ankieta \"Pytanie?\" \"Opcja1\" \"Opcja2\" ...` – tworzy ankietę z reakcjami (2–10 opcji)\n"
-        "• Głosuj klikając 1️⃣ 2️⃣ itd.\n"
-        "• Kliknij 👥 aby zobaczyć kto na co zagłosował (w prywatnej wiadomości)\n"
-        "• ❌ zamyka ankietę (tylko twórca)\n"
-        "• Automatycznie kończy się po 10 minutach z wynikami i zwycięzcą"
-    ),
-    inline=False
-)
-pages.append(embed5)
+            name="🎉 Ankiety i zabawy",
+            value=(
+                "`ankieta \"Pytanie?\" \"Opcja1\" \"Opcja2\" ...` – tworzy ankietę z reakcjami (2–10 opcji)\n"
+                "• Głosuj klikając 1️⃣ 2️⃣ itd.\n"
+                "• Kliknij 👥 aby zobaczyć kto na co zagłosował (w prywatnej wiadomości)\n"
+                "• ❌ zamyka ankietę (tylko twórca)\n"
+                "• Automatycznie kończy się po 10 minutach z wynikami i zwycięzcą"
+            ),
+            inline=False
+        )
+        pages.append(embed5)
 
-return pages
+        return pages
 
 async def setup(bot):
     await bot.add_cog(Pomoc(bot))
