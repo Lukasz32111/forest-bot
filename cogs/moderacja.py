@@ -113,9 +113,9 @@ class Moderacja(commands.Cog):
         except Exception as e:
             await ctx.send(f"Błąd: {e}")
 
-    @commands.command(name="czyść", aliases=["purge", "usuńwiadomości", "clear"])
-    @commands.has_permissions(manage_messages=True)
-    @commands.bot_has_permissions(manage_messages=True)
+      @commands.command(name="czyść", aliases=["purge", "usuńwiadomości", "clear"])
+      @commands.has_permissions(manage_messages=True)
+      @commands.bot_has_permissions(manage_messages=True)
     async def czyść(self, ctx, limit: int = 50, member: discord.Member = None):
         """
         Usuwa ostatnie wiadomości z kanału
