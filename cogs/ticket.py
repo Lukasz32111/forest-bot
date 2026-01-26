@@ -7,7 +7,7 @@ class Ticket(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(name="ticket", aliases=["zgłoś", "pomoc", "support"])
+    @commands.command(name="ticket", aliases=["zgłoś", "support"])
     async def ticket(self, ctx, *, reason: str = "Brak powodu"):
         """
         Tworzy prywatny ticket / zgłoszenie
