@@ -66,16 +66,12 @@ class Moderacja(commands.Cog):
         except Exception as e:
             await ctx.send(f"Błąd: {e}")
 
-        @commands.command(name="wycisz", aliases=["zamknij", "timeoutpl"])
+    @commands.command(name="wycisz", aliases=["zamknij", "timeoutpl"])
     @commands.has_permissions(moderate_members=True)
     @commands.bot_has_permissions(moderate_members=True)
     async def wycisz(self, ctx, member: discord.Member, czas: str, *, reason: str = "Brak powodu"):
         """
         Wycisza użytkownika na dowolny czas (do 28 dni – limit Discorda)
-        Przykład: 8wycisz @osoba 30m test
-                  8wycisz @osoba 2h
-                  8wycisz @osoba 7d
-                  8wycisz @osoba 3600s
         """
         if member == ctx.author:
             return await ctx.send("Nie możesz wyciszyć samego siebie.")
@@ -88,7 +84,6 @@ class Moderacja(commands.Cog):
             if duration.total_seconds() <= 0:
                 return await ctx.send("Czas musi być dłuższy niż 0 sekund.")
 
-            # Limit Discorda = 28 dni
             if duration.total_seconds() > 2419200:
                 return await ctx.send("Discord pozwala na maksymalnie 28 dni wyciszenia.")
 
