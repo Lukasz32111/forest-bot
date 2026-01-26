@@ -118,6 +118,7 @@ class Pomoc(commands.Cog):
                 "`ostrzeżenie @osoba [powód]` – daje ostrzeżenie\n"
                 "`ostrzeżenia [@osoba]` – pokazuje ostrzeżenia danej osoby\n"
                 "`usuńostrzeżenie @osoba [numer]` – usuwa ostrzeżenie (ostatnie lub konkretne)\n"
+                "`czyść [ilość] [@osoba]` – usuwa wiadomości (domyślnie 50, max 1000)\n"
             ),
             inline=False
         )
