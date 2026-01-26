@@ -58,7 +58,7 @@ class Pomoc(commands.Cog):
         # Strona 1 – wstęp + Muzyka
         embed1 = discord.Embed(
             title="📚 Pomoc – strona 1/4",
-            description="Prefix: **8**   |   Używaj strzałek ◀️ ▶️ do przełączania",
+            description="Prefix: **8** | Używaj strzałek ◀️ ▶️ do przełączania",
             color=0x5865f2
         )
         embed1.add_field(
@@ -78,10 +78,10 @@ class Pomoc(commands.Cog):
         )
         pages.append(embed1)
 
-        # Strona 2 – Farkle + Memy   ← TU ZMIANA
+        # Strona 2 – Farkle + Memy
         embed2 = discord.Embed(
             title="📚 Pomoc – strona 2/4",
-            description="Prefix: **8**   |   ◀️ ▶️ do nawigacji",
+            description="Prefix: **8** | ◀️ ▶️ do nawigacji",
             color=0x5865f2
         )
         embed2.add_field(
@@ -104,7 +104,7 @@ class Pomoc(commands.Cog):
         # Strona 3 – Moderacja
         embed3 = discord.Embed(
             title="📚 Pomoc – strona 3/4",
-            description="Prefix: **8**   |   ◀️ ▶️ do nawigacji",
+            description="Prefix: **8** | ◀️ ▶️ do nawigacji",
             color=0x5865f2
         )
         embed3.add_field(
@@ -119,29 +119,29 @@ class Pomoc(commands.Cog):
                 "`ostrzeżenia [@osoba]` – pokazuje ostrzeżenia danej osoby\n"
                 "`usuńostrzeżenie @osoba [numer]` – usuwa ostrzeżenie (ostatnie lub konkretne)\n"
                 "`czyść [ilość] [@osoba]` – usuwa wiadomości (domyślnie 50, max 1000)\n"
+                "`ankieta \"Pytanie?\" \"Opcja1\" \"Opcja2\" ...` – tworzy ankietę z reakcjami (2–10 opcji)\n"
+                "  • Głosuj klikając 1️⃣ 2️⃣ itd.\n"
+                "  • Kliknij 👥 aby zobaczyć kto na co zagłosował (w prywatnej wiadomości)"
             ),
             inline=False
         )
         pages.append(embed3)
 
         # Strona 4 – informacje dodatkowe
-        embed5 = discord.Embed(
-    title="📚 Pomoc – strona 5/5",
-    description="Prefix: **8**   |   Zabawa i dodatkowe funkcje",
-    color=0x5865f2
-)
-embed5.add_field(
-            name="🎉 Ankiety i zabawy",
+        embed4 = discord.Embed(
+            title="📚 Pomoc – strona 4/4",
+            description="Prefix: **8** | Koniec listy",
+            color=0x5865f2
+        )
+        embed4.add_field(
+            name="Dodatkowe info",
             value=(
-                "`ankieta \"Pytanie?\" \"Opcja1\" \"Opcja2\" ...` – tworzy ankietę z reakcjami (2–10 opcji)\n"
-                "• Głosuj klikając 1️⃣ 2️⃣ itd.\n"
-                "• Kliknij 👥 aby zobaczyć kto na co zagłosował (w prywatnej wiadomości)\n"
-                "• ❌ zamyka ankietę (tylko twórca)\n"
-                "• Automatycznie kończy się po 10 minutach z wynikami i zwycięzcą"
+                "• Bot ma włączone reakcje i embedy\n"
+                "• Problemy? Napisz do twórcy"
             ),
             inline=False
         )
-        pages.append(embed5)
+        pages.append(embed4)
 
         return pages
 
