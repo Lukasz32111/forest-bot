@@ -112,7 +112,7 @@ class Pomoc(commands.Cog):
             value=(
                 "`wyrzuc @osoba [powód]` – wyrzuca z serwera\n"
                 "`zbanuj @osoba [powód]` – banuje\n"
-                "`odbanuj ID/@osoba [powód]` – odbanowuje\n"
+                "`odbanuj ID [powód]` – odbanowuje\n"
                 "`wycisz @osoba czas [powód]` – timeout (np. 30m, 2h)\n"
                 "`odcisz @osoba [powód]` – zdejmuje timeout"
             ),
