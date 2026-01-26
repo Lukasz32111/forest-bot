@@ -9,7 +9,6 @@ class Ankieta(commands.Cog):
         self.bot = bot
 
     def parse_duration(self, time_str: str) -> timedelta:
-        """Parsuje czas w formacie 30m, 2h, 1d, 3600s"""
         time_str = time_str.lower().replace(" ", "")
         multipliers = {"s": 1, "m": 60, "h": 3600, "d": 86400}
         num = ""
@@ -32,24 +31,41 @@ class Ankieta(commands.Cog):
         Przykład:
         8ankieta "Która pizza?" "Pepperoni" "Margherita" "Hawaje" 30m
         """
-        # Normalizujemy polskie cudzysłowy → zwykłe
+        # Normalizujemy polskie cudzysłowy i dodatkowe spacje
         tekst = args.replace('“', '"').replace('”', '"').replace('„', '"').replace('”', '"').strip()
 
-        # Rozdzielamy po cudzysłowach
-        części = [p.strip() for p in tekst.split('"') if p.strip()]
+        # Rozdzielamy po " , ale tolerujemy spacje wokół
+        części = []
+        temp = ""
+        in_quote = False
+        for char in tekst:
+            if char == '"':
+                in_quote = not in_quote
+                if not in_quote and temp.strip():
+                    części.append(temp.strip())
+                    temp = ""
+            elif in_quote or char != ' ':
+                temp += char
+            elif temp.strip():
+                części.append(temp.strip())
+                temp = ""
+
+        if temp.strip():
+            części.append(temp.strip())
 
         if len(części) < 3 or len(części) % 2 == 0:
             return await ctx.send(
                 "❌ Zły format!\n\n"
                 "Poprawnie:\n"
                 '`8ankieta "Pytanie?" "Opcja 1" "Opcja 2" [czas]`\n\n'
-                "Czas opcjonalny: 30m, 2h, 1d, 3600s"
+                "Czas opcjonalny: 30m, 2h, 1d, 3600s\n"
+                "Między cudzysłowami musi być spacja!"
             )
 
         pytanie = części[0]
         ostatni = części[-1]
 
-        # Sprawdzamy, czy ostatni argument to czas
+        # Sprawdzamy, czy ostatni to czas
         timeout_sec = 600  # domyślnie 10 minut
         opcje = części[1:]
 
@@ -57,9 +73,9 @@ class Ankieta(commands.Cog):
             try:
                 duration = self.parse_duration(ostatni)
                 timeout_sec = int(duration.total_seconds())
-                opcje = części[1:-1]  # ostatni to czas → opcje do przedostatniego
+                opcje = części[1:-1]
             except ValueError:
-                pass  # traktujemy jako zwykłą opcję
+                pass  # traktujemy jako opcję
 
         if len(opcje) < 2 or len(opcje) > 10:
             return await ctx.send("❌ Ankieta musi mieć od 2 do 10 opcji!")
@@ -99,13 +115,11 @@ class Ankieta(commands.Cog):
 
                 emoji_str = str(reaction.emoji)
 
-                # Zamknięcie ankiety przez twórcę
                 if emoji_str == "❌" and user == ctx.author:
                     embed.set_footer(text=f"Ankieta zakończona przez {ctx.author.display_name}")
                     await msg.edit(embed=embed)
                     break
 
-                # Pokazanie kto głosował (w DM z pełną nazwą opcji)
                 if emoji_str == "👥":
                     if voted_users:
                         lista = []
@@ -124,27 +138,22 @@ class Ankieta(commands.Cog):
                     await msg.remove_reaction("👥", user)
                     continue
 
-                # Normalny głos
                 if emoji_str in votes:
                     if user.id not in voters[emoji_str]:
-                        # Usuwamy poprzedni głos tej osoby (jeśli był)
                         for em in votes:
                             if user.id in voters[em]:
                                 voters[em].remove(user.id)
                                 votes[em] -= 1
                                 break
 
-                        # Dodajemy nowy głos
                         votes[emoji_str] += 1
                         voters[emoji_str].add(user.id)
                         voted_users.add(user.id)
 
-                        # Dodajemy reakcję 👥 dopiero po pierwszym głosie
                         if not show_voters_reaction_added and sum(votes.values()) > 0:
                             await msg.add_reaction("👥")
                             show_voters_reaction_added = True
 
-                        # Aktualizacja embeda z wynikami
                         total = sum(votes.values())
                         linie = []
                         for i, em in enumerate(emojis[:len(opcje)]):
