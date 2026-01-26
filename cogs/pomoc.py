@@ -91,6 +91,7 @@ class Pomoc(commands.Cog):
                 "  • bez @ – grasz z botem\n"
                 "  • z @ – grasz z inną osobą (1v1)\n"
                 "`skończ` – przerywa aktualną grę"
+                "`ticket [powód]` – tworzy prywatny kanał na zgłoszenie / pytanie\n"
             ),
             inline=False
         )
