@@ -113,16 +113,13 @@ class Moderacja(commands.Cog):
         except Exception as e:
             await ctx.send(f"Błąd: {e}")
 
-      @commands.command(name="czyść", aliases=["purge", "usuńwiadomości", "clear"])
-      @commands.has_permissions(manage_messages=True)
-      @commands.bot_has_permissions(manage_messages=True)
+    @commands.command(name="czyść", aliases=["purge", "usuńwiadomości", "clear"])
+    @commands.has_permissions(manage_messages=True)
+    @commands.bot_has_permissions(manage_messages=True)
     async def czyść(self, ctx, limit: int = 50, member: discord.Member = None):
         """
         Usuwa ostatnie wiadomości z kanału
         8czyść [ilość] [@osoba opcjonalnie]
-        Przykład:
-        8czyść 100                  ← usuwa 100 ostatnich
-        8czyść 50 @Daniel           ← usuwa 50 ostatnich od Daniela
         """
         if limit < 1 or limit > 1000:
             return await ctx.send("Możesz usunąć od 1 do 1000 wiadomości naraz.")
@@ -131,7 +128,7 @@ class Moderacja(commands.Cog):
             return member is None or msg.author == member
 
         try:
-            deleted = await ctx.channel.purge(limit=limit + 1, check=check)  # +1 bo liczy też komendę
+            deleted = await ctx.channel.purge(limit=limit + 1, check=check)
             msg = await ctx.send(f"Usunięto **{len(deleted)-1}** wiadomości.")
             await asyncio.sleep(3)
             await msg.delete()
