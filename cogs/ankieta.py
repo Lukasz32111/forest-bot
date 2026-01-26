@@ -20,7 +20,7 @@ class Ankieta(commands.Cog):
                 unit = char
                 break
         if not num or unit not in multipliers:
-            raise ValueError("Nieprawidłowy format czasu")
+            return None  # nie jest to czas
         seconds = int(num) * multipliers[unit]
         return timedelta(seconds=seconds)
 
@@ -29,45 +29,40 @@ class Ankieta(commands.Cog):
         """
         Tworzy ankietę z reakcjami + opcjonalnym czasem zamknięcia
         Przykład:
-        8ankieta Która pizza najlepsza? Pepperoni Margherita Hawaje 4 Sery 30m
-        8ankieta "Która pizza?" "Pepperoni" "Margherita" "Hawaje" 2h
-        8ankieta Najlepszy film? Dune 2, Deadpool, Joker 2
+        8ankieta "Która pizza?" "Pepperoni" "Margherita" "Hawaje" 30m
+        8ankieta Najlepszy film Dune 2 Deadpool Joker 2 2h
         """
-        # Usuwamy polskie cudzysłowy i normalizujemy
+        # Normalizujemy polskie cudzysłowy i dodatkowe spacje
         tekst = args.replace('“', '"').replace('”', '"').replace('„', '"').replace('”', '"').strip()
 
-        # Jeśli są cudzysłowy → dzielimy po nich
+        # Rozdzielamy po cudzysłowach (jeśli są)
         if '"' in tekst:
             części = [p.strip() for p in tekst.split('"') if p.strip()]
-            if len(części) < 3 or len(części) % 2 == 0:
-                return await ctx.send(
-                    "❌ Zły format przy używaniu cudzysłowów!\n\n"
-                    "Poprawnie z cudzysłowami:\n"
-                    '`8ankieta "Pytanie?" "Opcja 1" "Opcja 2" [czas]`\n'
-                    "lub bez cudzysłowów:\n"
-                    '`8ankieta Pytanie? Opcja1 Opcja2 Opcja3 [czas]`\n\n'
-                    "Czas opcjonalny: 30m, 2h, 1d"
-                )
-            pytanie = części[0]
-            opcje_raw = części[1:]
         else:
-            # Bez cudzysłowów – dzielimy po spacjach, ale traktujemy jako jedną frazę pytanie + opcje
-            słowa = tekst.split()
-            if len(słowa) < 3:
-                return await ctx.send("❌ Za mało elementów! Minimum: pytanie + 2 opcje")
-            pytanie = słowa[0]
-            opcje_raw = słowa[1:]
+            części = tekst.split()
 
-        # Ostatni element może być czasem
+        if len(części) < 3:
+            return await ctx.send(
+                "❌ Za mało elementów!\n\n"
+                "Poprawnie:\n"
+                '`8ankieta "Pytanie?" "Opcja 1" "Opcja 2" [czas]`\n'
+                "lub bez cudzysłowów:\n"
+                '`8ankieta Pytanie? Opcja1 Opcja2 Opcja3 [czas]`\n\n'
+                "Czas opcjonalny: 30m, 2h, 1d, 3600s"
+            )
+
+        # Pytanie = pierwsze słowo / pierwsza część
+        pytanie = części[0]
+
+        # Ostatnie słowo sprawdzamy jako potencjalny czas
+        ostatni = części[-1]
         timeout_sec = 600  # domyślnie 10 minut
-        opcje = opcje_raw
-        if opcje_raw and opcje_raw[-1].lower().endswith(('s', 'm', 'h', 'd')) and opcje_raw[-1][:-1].isdigit():
-            try:
-                duration = self.parse_duration(opcje_raw[-1])
-                timeout_sec = int(duration.total_seconds())
-                opcje = opcje_raw[:-1]
-            except ValueError:
-                pass
+        opcje = części[1:]
+
+        parsed_time = self.parse_duration(ostatni)
+        if parsed_time is not None:
+            timeout_sec = int(parsed_time.total_seconds())
+            opcje = części[1:-1]  # wyrzucamy czas z listy opcji
 
         if len(opcje) < 2 or len(opcje) > 10:
             return await ctx.send(f"❌ Liczba opcji musi być od 2 do 10 (masz {len(opcje)})")
