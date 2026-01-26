@@ -125,21 +125,23 @@ class Pomoc(commands.Cog):
         pages.append(embed3)
 
         # Strona 4 – informacje dodatkowe
-        embed4 = discord.Embed(
-            title="📚 Pomoc – strona 4/4",
-            description="Prefix: **8**   |   Koniec listy",
-            color=0x5865f2
-        )
-        embed4.add_field(
-            name="Dodatkowe info",
-            value=(
-                "• Bot ma włączone reakcje i embedy\n"
-                "• Problemy? Napisz do twórcy"
-                "`ankieta \"Pytanie?\" \"Opcja1\" \"Opcja2\" \"Opcja3\"` – tworzy ankietę z reakcjami\n"
-            ),
-            inline=False
-        )
-        pages.append(embed4)
+        embed5 = discord.Embed(
+    title="📚 Pomoc – strona 5/5",
+    description="Prefix: **8**   |   Zabawa i dodatkowe funkcje",
+    color=0x5865f2
+)
+embed5.add_field(
+    name="🎉 Ankiety i zabawy",
+    value=(
+        "`ankieta \"Pytanie?\" \"Opcja1\" \"Opcja2\" ...` – tworzy ankietę z reakcjami (2–10 opcji)\n"
+        "• Głosuj klikając 1️⃣ 2️⃣ itd.\n"
+        "• Kliknij 👥 aby zobaczyć kto na co zagłosował (w prywatnej wiadomości)\n"
+        "• ❌ zamyka ankietę (tylko twórca)\n"
+        "• Automatycznie kończy się po 10 minutach z wynikami i zwycięzcą"
+    ),
+    inline=False
+)
+pages.append(embed5)
 
         return pages
 
