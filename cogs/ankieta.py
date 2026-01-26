@@ -97,3 +97,6 @@ class Ankieta(commands.Cog):
                     embed.set_footer(text=f"{total_votes} głosów • Ankieta zakończona automatycznie")
                     await msg.edit(embed=embed)
                 break
+
+async def setup(bot):
+    await bot.add_cog(Ankieta(bot))
