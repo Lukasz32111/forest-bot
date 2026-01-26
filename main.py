@@ -54,6 +54,7 @@ async def load_cogs():
     await bot.load_extension("cogs.moderacja")
     await bot.load_extension("cogs.warn")
     await bot.load_extension("cogs.ankieta")
+    await bot.load_extension("cogs.ticket")
     print("Cogi załadowane pomyślnie")
 
 @bot.event
@@ -69,6 +70,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
