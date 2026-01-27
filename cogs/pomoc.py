@@ -91,7 +91,6 @@ class Pomoc(commands.Cog):
                 "  • bez @ – grasz z botem\n"
                 "  • z @ – grasz z inną osobą (1v1)\n"
                 "`skończ` – przerywa aktualną grę"
-                "`ticket [powód]` – tworzy prywatny kanał na zgłoszenie / pytanie\n"
             ),
             inline=False
         )
@@ -137,6 +136,7 @@ class Pomoc(commands.Cog):
         embed4.add_field(
             name="Dodatkowe info",
             value=(
+                "`ticket [powód]` – tworzy prywatny kanał na zgłoszenie / pytanie\n"
                 "• Bot ma włączone reakcje i embedy\n"
                 "• Problemy? Napisz do twórcy"
             ),
