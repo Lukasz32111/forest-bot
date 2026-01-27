@@ -16,12 +16,18 @@ class Ticket(commands.Cog):
         guild = ctx.guild
         author = ctx.author
 
+        # Usuwamy wiadomość z komendą (nie zaśmieca kanału)
+        try:
+            await ctx.message.delete()
+        except:
+            pass
+
         # Kategoria dla otwartych ticketów
         category = discord.utils.get(guild.categories, name="Tickety")
         if not category:
             category = await guild.create_category("Tickety")
 
-        # Kategoria dla archiwum (zamkniętych ticketów)
+        # Kategoria dla archiwum
         archive_category = discord.utils.get(guild.categories, name="Archiwum Ticketów")
         if not archive_category:
             archive_category = await guild.create_category("Archiwum Ticketów")
@@ -32,7 +38,7 @@ class Ticket(commands.Cog):
         # Sprawdzamy duplikat
         existing = discord.utils.get(guild.text_channels, name=channel_name)
         if existing:
-            return await ctx.send(f"{author.mention}, masz już otwarty ticket: {existing.mention}")
+            return await ctx.send(f"{author.mention}, masz już otwarty ticket: {existing.mention}", delete_after=10)
 
         # Uprawnienia dla otwartego ticketu
         overwrites = {
@@ -41,7 +47,7 @@ class Ticket(commands.Cog):
             guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_messages=True, manage_channels=True),
         }
 
-        # Rola moderatorów – zmień nazwę roli na swoją (np. "Support", "Moderator", "Admin")
+        # Rola moderatorów – ZMIEŃ NAZWĘ ROLI NA SWOJĄ (np. "Support", "Moderator", "Admin")
         support_role = discord.utils.get(guild.roles, name="Support")
         if support_role:
             overwrites[support_role] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_messages=True)
@@ -53,13 +59,21 @@ class Ticket(commands.Cog):
             topic=f"Ticket użytkownika {author} | Powód: {reason}"
         )
 
-        # Embed powitalny
+        # Embed powitalny w tickecie
         embed = discord.Embed(
             title="Ticket utworzony!",
-            description=f"Cześć {author.mention}! To Twój prywatny kanał na zgłoszenie.\n\n**Powód:** {reason}\n\nOpisz swój problem – moderatorzy niedługo Ci pomogą.",
+            description=(
+                f"Cześć {author.mention}!\n"
+                "To Twój prywatny kanał na zgłoszenie.\n\n"
+                f"**Powód:** {reason}\n"
+                f"**Utworzony:** {discord.utils.utcnow().strftime('%Y-%m-%d %H:%M UTC')}\n\n"
+                "Opisz swój problem – moderatorzy niedługo Ci pomogą.\n"
+                "Aby zamknąć ticket, kliknij przycisk poniżej ↓"
+            ),
             color=0x00ff88
         )
         embed.set_thumbnail(url=author.avatar.url if author.avatar else None)
+        embed.set_footer(text="Ticket zostanie przeniesiony do archiwum po zamknięciu")
 
         # Przycisk do zamykania
         view = discord.ui.View(timeout=None)
@@ -73,10 +87,10 @@ class Ticket(commands.Cog):
 
             await interaction.response.defer()
 
-            # Zmiana kategorii na archiwum
+            # Przenosimy do archiwum
             await channel.edit(category=archive_category, name=f"closed-{channel.name}")
 
-            # Zmiana uprawnień na tylko do odczytu
+            # Tylko do odczytu
             await channel.set_permissions(author, send_messages=False)
             if support_role:
                 await channel.set_permissions(support_role, send_messages=False)
@@ -89,7 +103,7 @@ class Ticket(commands.Cog):
             )
             await channel.send(embed=closed_embed)
 
-            # Opcjonalny przycisk "Usuń całkowicie" (tylko dla modów)
+            # Przycisk "Usuń całkowicie" (tylko dla modów)
             delete_view = discord.ui.View(timeout=None)
             delete_button = discord.ui.Button(label="Usuń całkowicie", style=discord.ButtonStyle.danger, emoji="🗑️")
             delete_view.add_item(delete_button)
@@ -109,8 +123,14 @@ class Ticket(commands.Cog):
 
         close_button.callback = close_callback
 
-        await channel.send(embed=embed, content=f"{author.mention} <@&{support_role.id}>", view=view)
-        await ctx.send(f"{author.mention}, Twój ticket został utworzony: {channel.mention}")
+        # Wysyłamy embed + pingujemy autora i support
+        content = f"{author.mention}"
+        if support_role:
+            content += f" <@&{support_role.id}>"
+        await channel.send(content=content, embed=embed, view=view)
+
+        # Potwierdzenie w kanale komendy
+        await ctx.send(f"{author.mention}, Twój ticket został utworzony: {channel.mention}", delete_after=10)
 
 async def setup(bot):
     await bot.add_cog(Ticket(bot))
