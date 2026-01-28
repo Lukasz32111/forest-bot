@@ -6,6 +6,7 @@ import asyncio
 class Ticket(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.active_tickets = {}  # user_id -> channel_id (ochrona 1 ticket na osobę)
 
     @commands.command(name="ticket", aliases=["zgłoś", "zgłoszenie"])
     async def ticket(self, ctx, *, reason: str = "Brak powodu"):
@@ -15,12 +16,27 @@ class Ticket(commands.Cog):
         """
         guild = ctx.guild
         author = ctx.author
+        user_id = str(author.id)
 
         # Usuwamy wiadomość z komendą (nie zaśmieca kanału)
         try:
             await ctx.message.delete()
         except:
             pass
+
+        # 1. Ochrona przed duplikatami – sprawdzamy po user ID
+        if user_id in self.active_tickets:
+            channel_id = self.active_tickets[user_id]
+            channel = guild.get_channel(channel_id)
+            if channel:
+                return await ctx.send(
+                    f"{author.mention}, masz już otwarty ticket: {channel.mention}\n"
+                    "Najpierw go zamknij, zanim stworzysz nowy.",
+                    delete_after=15
+                )
+            else:
+                # Kanał nie istnieje (np. usunięty ręcznie) – czyścimy cache
+                del self.active_tickets[user_id]
 
         # Kategoria dla otwartych ticketów
         category = discord.utils.get(guild.categories, name="Tickety")
@@ -34,11 +50,6 @@ class Ticket(commands.Cog):
 
         # Nazwa kanału
         channel_name = f"ticket-{author.name.lower().replace(' ', '-')}-{author.discriminator}"
-
-        # Sprawdzamy duplikat
-        existing = discord.utils.get(guild.text_channels, name=channel_name)
-        if existing:
-            return await ctx.send(f"{author.mention}, masz już otwarty ticket: {existing.mention}", delete_after=10)
 
         # Uprawnienia dla otwartego ticketu
         overwrites = {
@@ -58,6 +69,9 @@ class Ticket(commands.Cog):
             overwrites=overwrites,
             topic=f"Ticket użytkownika {author} | Powód: {reason}"
         )
+
+        # Zapisujemy aktywny ticket użytkownika
+        self.active_tickets[user_id] = channel.id
 
         # Embed powitalny w tickecie
         embed = discord.Embed(
@@ -102,6 +116,10 @@ class Ticket(commands.Cog):
                 color=0xff5555
             )
             await channel.send(embed=closed_embed)
+
+            # Zwalniamy slot (można stworzyć nowy ticket)
+            if user_id in self.active_tickets:
+                del self.active_tickets[user_id]
 
             # Przycisk "Usuń całkowicie" (tylko dla modów)
             delete_view = discord.ui.View(timeout=None)
