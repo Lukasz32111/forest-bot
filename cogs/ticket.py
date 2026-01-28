@@ -150,5 +150,29 @@ class Ticket(commands.Cog):
         # Potwierdzenie w kanale komendy
         await ctx.send(f"{author.mention}, Twój ticket został utworzony: {channel.mention}", delete_after=10)
 
+TICKET_FILE = "tickets.json"
+
+def load_tickets(self):
+    if os.path.exists(TICKET_FILE):
+        with open(TICKET_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+def save_tickets(self):
+    with open(TICKET_FILE, 'w') as f:
+        json.dump(self.active_tickets, f, indent=4)
+
+# W __init__:
+self.active_tickets = self.load_tickets()
+
+# Po stworzeniu ticketu:
+self.active_tickets[str(author.id)] = channel.id
+self.save_tickets()
+
+# Po zamknięciu:
+if str(author.id) in self.active_tickets:
+    del self.active_tickets[str(author.id)]
+    self.save_tickets()
+
 async def setup(bot):
     await bot.add_cog(Ticket(bot))
