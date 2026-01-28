@@ -68,58 +68,9 @@ async def main():
         return
     await bot.start(token)
 
-@bot.event
-async def on_command_error(ctx, error):
-    """Globalny handler błędów komend – ładne komunikaty zamiast crashy"""
-    if isinstance(error, commands.CommandNotFound):
-        return  # ignorujemy nieistniejące komendy
-
-    if isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send(
-            f"❌ Brak wymaganego argumentu!\n"
-            f"Użyj: `{ctx.prefix}{ctx.command.name} {ctx.command.signature}`"
-        )
-
-    elif isinstance(error, commands.BadArgument):
-        await ctx.send(
-            f"❌ Nieprawidłowy argument!\n"
-            f"Sprawdź format komendy: `{ctx.prefix}{ctx.command.name}`\n"
-            f"Przykład: `{ctx.prefix}{ctx.command.name} {ctx.command.signature}`"
-        )
-
-    elif isinstance(error, commands.CommandOnCooldown):
-        await ctx.send(
-            f"⏳ Spokojnie! Komenda dostępna za **{error.retry_after:.1f} sekund**."
-        )
-
-    elif isinstance(error, commands.MissingPermissions):
-        await ctx.send("❌ Nie masz uprawnień do tej komendy.")
-
-    elif isinstance(error, commands.BotMissingPermissions):
-        await ctx.send(
-            "❌ Bot nie ma wymaganych uprawnień (np. Manage Messages, Manage Channels).\n"
-            "Poproś admina serwera o nadanie botowi roli z odpowiednimi permisjami."
-        )
-
-    elif isinstance(error, commands.CommandInvokeError):
-        # Błędy wewnętrzne – np. exception w kodzie komendy
-        print(f"Błąd w komendzie {ctx.command}: {error.original}")
-        await ctx.send(
-            "❌ Coś poszło nie tak po stronie bota...\n"
-            f"({type(error.original).__name__})\n"
-            "Zgłoś to twórcy – sprawdzę co się stało."
-        )
-
-    else:
-        # Wszystkie inne nieobsłużone błędy
-        print(f"Nieobsłużony błąd w komendzie {ctx.command}: {error}")
-        await ctx.send(
-            f"❌ Nieznany błąd: `{type(error).__name__}`\n"
-            "Coś poszło nie tak – zgłoś to twórcy bota."
-        )
-
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
