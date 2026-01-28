@@ -7,6 +7,7 @@ from datetime import timedelta
 class Ankieta(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.active_polls = {}  # user_id -> message_id aktywnej ankiety
 
     def parse_duration(self, time_str: str) -> timedelta:
         time_str = time_str.lower().replace(" ", "")
@@ -20,7 +21,7 @@ class Ankieta(commands.Cog):
                 unit = char
                 break
         if not num or unit not in multipliers:
-            return None  # nie jest to czas
+            return None
         seconds = int(num) * multipliers[unit]
         return timedelta(seconds=seconds)
 
@@ -30,9 +31,25 @@ class Ankieta(commands.Cog):
         Tworzy ankietę z reakcjami + opcjonalnym czasem zamknięcia
         Przykład:
         8ankieta "Która pizza?" "Pepperoni" "Margherita" "Hawaje" 30m
-        8ankieta Najlepszy film Dune 2 Deadpool Joker 2 2h
         """
-        # Normalizujemy polskie cudzysłowy i dodatkowe spacje
+        user_id = str(ctx.author.id)
+
+        # Sprawdzamy, czy użytkownik ma już aktywną ankietę
+        if user_id in self.active_polls:
+            old_msg_id = self.active_polls[user_id]
+            old_msg = None
+            try:
+                old_msg = await ctx.channel.fetch_message(old_msg_id)
+            except:
+                pass
+
+            if old_msg:
+                return await ctx.send(
+                    f"{ctx.author.mention}, masz już aktywną ankietę! {old_msg.jump_url}\n"
+                    "Najpierw ją zamknij (❌), zanim stworzysz nową."
+                )
+
+        # Normalizujemy polskie cudzysłowy i spacje
         tekst = args.replace('“', '"').replace('”', '"').replace('„', '"').replace('”', '"').strip()
 
         # Rozdzielamy po cudzysłowach (jeśli są)
@@ -51,18 +68,17 @@ class Ankieta(commands.Cog):
                 "Czas opcjonalny: 30m, 2h, 1d, 3600s"
             )
 
-        # Pytanie = pierwsze słowo / pierwsza część
         pytanie = części[0]
-
-        # Ostatnie słowo sprawdzamy jako potencjalny czas
         ostatni = części[-1]
+
+        # Sprawdzamy ostatni argument jako czas
         timeout_sec = 600  # domyślnie 10 minut
         opcje = części[1:]
 
         parsed_time = self.parse_duration(ostatni)
         if parsed_time is not None:
             timeout_sec = int(parsed_time.total_seconds())
-            opcje = części[1:-1]  # wyrzucamy czas z listy opcji
+            opcje = części[1:-1]
 
         if len(opcje) < 2 or len(opcje) > 10:
             return await ctx.send(f"❌ Liczba opcji musi być od 2 do 10 (masz {len(opcje)})")
@@ -87,6 +103,9 @@ class Ankieta(commands.Cog):
             await msg.add_reaction(emoji)
         await msg.add_reaction("❌")
 
+        # Zapisujemy aktywną ankietę użytkownika
+        self.active_polls[user_id] = msg.id
+
         votes = {emoji: 0 for emoji in emojis[:len(opcje)]}
         voters = {emoji: set() for emoji in emojis[:len(opcje)]}
         voted_users = set()
@@ -105,6 +124,9 @@ class Ankieta(commands.Cog):
                 if emoji_str == "❌" and user == ctx.author:
                     embed.set_footer(text=f"Ankieta zakończona przez {ctx.author.display_name}")
                     await msg.edit(embed=embed)
+                    # Zwalniamy slot użytkownika
+                    if user_id in self.active_polls:
+                        del self.active_polls[user_id]
                     break
 
                 if emoji_str == "👥":
@@ -176,6 +198,10 @@ class Ankieta(commands.Cog):
                 )
                 embed.set_footer(text=f"{total} głosów • Ankieta zakończona automatycznie")
                 await msg.edit(embed=embed)
+
+            # Zwalniamy slot po timeout
+            if user_id in self.active_polls:
+                del self.active_polls[user_id]
 
 async def setup(bot):
     await bot.add_cog(Ankieta(bot))
