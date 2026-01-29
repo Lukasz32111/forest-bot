@@ -5,7 +5,6 @@ import yt_dlp
 import asyncio
 import random
 from collections import deque
-
 from config import YTDL_FORMAT_OPTIONS, FFMPEG_OPTIONS, MAX_HISTORY
 
 # Używamy YT-DLP z config – nie definiujemy ponownie!
@@ -38,15 +37,14 @@ class Music(commands.Cog):
             return
 
         if ctx.guild.id in self.queue and self.queue[ctx.guild.id]:
-            next_song = self.queue[ctx.guild.id][0]
+            next_song = self.queue[ctx.guild.id].popleft()
             try:
                 player = await YTDLSource.from_url(next_song['url'], loop=self.bot.loop)
                 vc.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next_after(ctx), self.bot.loop))
                 await ctx.send(f'🎶 Teraz gra: **{next_song["title"]}**')
             except Exception as e:
                 print(f"Błąd przy odtwarzaniu: {e}")
-                self.queue[ctx.guild.id].popleft()
-                await self.play_next(ctx)
+                await self.play_next(ctx)  # spróbuj następną jeśli błąd
         else:
             await ctx.send("Koniec kolejki! 🎶")
 
@@ -82,25 +80,38 @@ class Music(commands.Cog):
 
     @commands.command()
     async def graj(self, ctx, *, query):
+        """Gra piosenkę z YouTube / link / wyszukiwanie"""
         if not ctx.author.voice:
             await ctx.send("Musisz być na kanale głosowym!")
             return
+
+        # Dołączamy jeśli nie jesteśmy podłączeni
         if not ctx.guild.voice_client:
             await ctx.invoke(self.bot.get_command('dołącz'))
             await asyncio.sleep(1.5)
+
+        vc = ctx.guild.voice_client
+
+        if ctx.guild.id not in self.queue:
+            self.queue[ctx.guild.id] = deque()
+
         try:
             async with ctx.typing():
                 player = await YTDLSource.from_url(query, loop=self.bot.loop)
-            if ctx.guild.id not in self.queue:
-                self.queue[ctx.guild.id] = deque()
-            self.queue[ctx.guild.id].append({"title": player.title, "url": query})
-            if not ctx.guild.voice_client.is_playing() and not ctx.guild.voice_client.is_paused():
-                await self.play_next(ctx)
-            else:
-                await ctx.send(f'✅ Dodano do kolejki: **{player.title}** (pozycja {len(self.queue[ctx.guild.id])})')
         except Exception as e:
-            await ctx.send("Nie udało się dodać utworu 😢")
+            await ctx.send("Nie udało się znaleźć lub dodać utworu 😢")
             print(f"Błąd w graj: {e}")
+            return
+
+        # Dodajemy do kolejki
+        self.queue[ctx.guild.id].append({"title": player.title, "url": query})
+
+        # Jeśli nic nie gra i nie jest w pauzie → startujemy od razu
+        if not vc.is_playing() and not vc.is_paused():
+            await self.play_next(ctx)
+        else:
+            position = len(self.queue[ctx.guild.id])
+            await ctx.send(f'✅ Dodano do kolejki: **{player.title}** (pozycja {position})')
 
     @commands.command()
     async def skip(self, ctx):
