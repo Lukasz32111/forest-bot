@@ -162,87 +162,124 @@ class Farkle(commands.Cog):
             else:
                 game["current_turn"] = game["player2"] if current == game["player1"] else game["player1"]
 
-    async def player_turn(self, ctx, game, player):
+async def player_turn(self, ctx, game, player):
+    if ctx.channel.id not in self.games:
+        return
+
+    turn_points = 0
+    remaining_dice = 6
+    turn_num = 1
+
+    while ctx.channel.id in self.games:
+        dice = [random.randint(1, 6) for _ in range(remaining_dice)]
+        if not self.has_scoring_combo(dice):
+            await ctx.send(embed=discord.Embed(
+                title="💀 FARKLE!",
+                description=f"{player.mention} – brak punktujących kombinacji!",
+                color=0xff0000
+            ))
+            return
+
+        dice_str = " ".join(f"**{d}**" for d in sorted(dice))
+        embed = discord.Embed(
+            title=f"🎲 Rzut {turn_num} – {player.display_name}",
+            description=f"Kostki: {dice_str}\n\n**Punkty w turze:** {turn_points}",
+            color=0x2b2d31
+        )
+        embed.set_footer(text="Kliknij tylko kostki, które dają punkty! | ✅ kontynuuj | ❌ bankuj | 90s")
+        msg = await ctx.send(embed=embed)
+
+        # Tylko kostki, które realnie coś punktują w tym rzucie
+        scoring_nums = self.get_scoring_nums(dice)
+        for d in scoring_nums:
+            await msg.add_reaction(f"{d}️⃣")
+        await msg.add_reaction("✅")
+        await msg.add_reaction("❌")
+
+        kept_nums = set()           # które wartości liczbowe zachowujemy (1,5, czy np. 4)
+        kept_counts = Counter()     # ile razy dana wartość została wybrana
+
+        def check(r, u):
+            return u == player and r.message.id == msg.id and ctx.channel.id in self.games
+
+        reacted_emoji = None
+        while ctx.channel.id in self.games:
+            try:
+                reaction, _ = await self.bot.wait_for("reaction_add", timeout=90, check=check)
+            except asyncio.TimeoutError:
+                if ctx.channel.id in self.games:
+                    await ctx.send(f"⏰ Czas minął – bankuję **{turn_points}** pkt dla {player.mention}")
+                    game["scores"][player.id] += turn_points
+                return
+
+            reacted_emoji = str(reaction.emoji)
+            if reacted_emoji[0].isdigit():
+                num = int(reacted_emoji[0])
+                if num in scoring_nums:
+                    kept_nums.add(num)
+                    kept_counts[num] += 1   # liczymy ile razy kliknął daną cyfrę
+            if reacted_emoji in ["✅", "❌"]:
+                break
+
         if ctx.channel.id not in self.games:
             return
-        turn_points = 0
-        remaining_dice = 6
-        turn_num = 1
 
-        while ctx.channel.id in self.games:
-            dice = [random.randint(1, 6) for _ in range(remaining_dice)]
-            if not self.has_scoring_combo(dice):
-                await ctx.send(embed=discord.Embed(
-                    title="💀 FARKLE!",
-                    description=f"{player.mention} – brak punktujących kombinacji!",
-                    color=0xff0000
-                ))
-                return
+        # Teraz budujemy listę faktycznie zachowanych kości
+        kept_list = []
+        dice_counts = Counter(dice)
+        for num in kept_nums:
+            # Nie można zachować więcej niż jest na stole
+            how_many = min(kept_counts[num], dice_counts[num])
+            kept_list.extend([num] * how_many)
 
-            dice_str = " ".join(f"**{d}**" for d in sorted(dice))
-            embed = discord.Embed(
-                title=f"🎲 Rzut {turn_num} – {player.display_name}",
-                description=f"Kostki: {dice_str}\n\n**Punkty w turze:** {turn_points}",
-                color=0x2b2d31
-            )
-            embed.set_footer(text="Kliknij cyfrę aby zachować (tylko punktujące!) | ✅ kontynuuj | ❌ bankuj | 90s")
-            msg = await ctx.send(embed=embed)
+        # Obliczamy punkty i sprawdzamy, czy WSZYSTKO co wybrano jest wykorzystane
+        points, has_points = self.calculate_points(kept_list)
 
-            scoring_nums = self.get_scoring_nums(dice)
-            for d in scoring_nums:
-                await msg.add_reaction(f"{d}️⃣")
-            await msg.add_reaction("✅")
-            await msg.add_reaction("❌")
+        # Kluczowa walidacja – czy wybrano coś, co nie dało punktów?
+        used_in_scoring = Counter()
+        temp_dice = kept_list[:]
+        # symulujemy, co faktycznie punktuje calculate_points
+        counts = Counter(temp_dice)
+        for num, count in counts.items():
+            triples = count // 3
+            if triples > 0:
+                used_in_scoring[num] += triples * 3
+            remaining = count - used_in_scoring[num]
+            if num == 1:
+                used_in_scoring[1] += remaining
+            if num == 5:
+                used_in_scoring[5] += remaining
 
-            kept = set()
-            def check(r, u):
-                return u == player and r.message.id == msg.id and ctx.channel.id in self.games
+        # Jeśli wybrano więcej jakiejś kostki niż zostało użyte w punktowaniu → oszustwo / błąd
+        invalid = False
+        for num in kept_nums:
+            selected = kept_counts[num]
+            used = used_in_scoring.get(num, 0)
+            if selected > used:
+                invalid = True
+                break
 
-            reacted_emoji = None
-            while ctx.channel.id in self.games:
-                try:
-                    reaction, _ = await self.bot.wait_for("reaction_add", timeout=90, check=check)
-                except asyncio.TimeoutError:
-                    if ctx.channel.id in self.games:
-                        await ctx.send(f"⏰ Czas minął – bankuję **{turn_points}** pkt dla {player.mention}")
-                        game["scores"][player.id] += turn_points
-                    return
+        if invalid or not has_points or points == 0:
+            await ctx.send(embed=discord.Embed(
+                title="💀 FARKLE!",
+                description="Wybrałeś kostki, które nie dają punktów (lub wybrałeś za dużo)!\nTura przepada.",
+                color=0xff0000
+            ))
+            return
 
-                reacted_emoji = str(reaction.emoji)
-                if reacted_emoji[0].isdigit():
-                    num = int(reacted_emoji[0])
-                    if num in scoring_nums:
-                        kept.add(num)
-                if reacted_emoji in ["✅", "❌"]:
-                    break
-
-            if ctx.channel.id not in self.games:
-                return
-
-            kept_list = []
-            counts = Counter(dice)
-            for num in kept:
-                kept_list.extend([num] * counts[num])  # zachowujemy wszystkie wystąpienia wybranego numeru
-
-            points, has_points = self.calculate_points(kept_list)
-
-            if not has_points or points == 0:
-                await ctx.send(embed=discord.Embed(title="💀 FARKLE!", description="Wybrana kombinacja nic nie daje!", color=0xff0000))
-                return
-
-            if reacted_emoji == "✅":
-                turn_points += points
-                remaining_dice -= len(kept_list)
-                await ctx.send(f"+**{points}** pkt → razem w turze: **{turn_points}**")
-                if remaining_dice == 0:
-                    await ctx.send(f"🔥 **HOT DICE!** {player.mention} rzuca znowu 6 kostkami!")
-                    remaining_dice = 6
-                turn_num += 1
-            else:  # ❌ bankuj
-                turn_points += points  # dodajemy ostatnie punkty przed bankowaniem
-                game["scores"][player.id] += turn_points
-                await ctx.send(f"Bankujesz **{turn_points}** pkt!")
-                return
+        # Wszystko OK
+        if reacted_emoji == "✅":
+            turn_points += points
+            remaining_dice -= len(kept_list)
+            await ctx.send(f"+**{points}** pkt → razem w turze: **{turn_points}**")
+            if remaining_dice == 0:
+                await ctx.send(f"🔥 **HOT DICE!** {player.mention} rzuca znowu 6 kostkami!")
+                remaining_dice = 6
+            turn_num += 1
+        else:  # ❌ bankuj
+            game["scores"][player.id] += turn_points
+            await ctx.send(f"Bankujesz **{turn_points}** pkt!")
+            return
 
     async def bot_turn(self, ctx, game):
         if ctx.channel.id not in self.games:
