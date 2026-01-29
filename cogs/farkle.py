@@ -20,13 +20,13 @@ class Farkle(commands.Cog):
         player1 = ctx.author
 
         if opponent is None:
-            # ── vs BOT ────────────────────────────────────────
+            # vs BOT
             await ctx.send(f"🎲 **{player1.mention}** zaczyna grę Farkle **z botem**!")
             game = {
                 "mode": "vs_bot",
                 "player1": player1,
                 "player2": None,
-                "current_turn": player1,           # zaczyna gracz
+                "current_turn": player1,
                 "scores": {player1.id: 0, "bot": 0},
                 "target": None,
                 "channel": ctx.channel,
@@ -36,7 +36,7 @@ class Farkle(commands.Cog):
             await self.choose_target(ctx, game)
 
         else:
-            # ── PvP ───────────────────────────────────────────
+            # PvP
             if opponent == player1:
                 return await ctx.send("Nie możesz grać sam ze sobą 😅")
             if opponent.bot:
@@ -115,7 +115,7 @@ class Farkle(commands.Cog):
                     "• Strit 1-6 = 1500 pkt\n"
                     "**Hot Dice** – zużyjesz wszystkie kostki → rzucasz 6 nowych!\n"
                     "**Farkle** – zero punktów w rzucie → tracisz punkty tury!\n"
-                    "Możesz zachować tylko punktujące kombinacje!"
+                    "Możesz wybrać dowolne kości – jeśli nie dadzą punktów → farkle!"
                 )
                 await ctx.send(poradnik)
                 continue
@@ -140,11 +140,11 @@ class Farkle(commands.Cog):
             if game["mode"] == "vs_bot":
                 if current == game["player1"]:
                     await self.player_turn(ctx, game, current)
-                    game["current_turn"] = None      # teraz bot
+                    game["current_turn"] = None
                 else:
                     await self.bot_turn(ctx, game)
-                    game["current_turn"] = game["player1"]  # wraca gracz
-            else:  # pvp
+                    game["current_turn"] = game["player1"]
+            else:
                 await self.player_turn(ctx, game, current)
                 game["current_turn"] = game["player2"] if current == game["player1"] else game["player1"]
 
@@ -153,7 +153,6 @@ class Farkle(commands.Cog):
 
             await self.show_game_state(ctx, game)
 
-            # sprawdź wygraną
             p1_score = game["scores"].get(game["player1"].id, 0)
             p2_score = game["scores"].get("bot" if game["mode"] == "vs_bot" else game["player2"].id, 0)
 
@@ -190,12 +189,14 @@ class Farkle(commands.Cog):
                 description=f"Kostki: {dice_str}\n\n**Punkty w turze:** {turn_points}",
                 color=0x2b2d31
             )
-            embed.set_footer(text="Kliknij tylko kostki, które dają punkty! | ✅ kontynuuj | ❌ bankuj | 90s")
+            embed.set_footer(text="Kliknij cyfry, które chcesz zachować (dowolne!) | ✅ kontynuuj | ❌ bankuj | 90s")
             msg = await ctx.send(embed=embed)
 
-            scoring_nums = self.get_scoring_nums(dice)
-            for d in scoring_nums:
-                await msg.add_reaction(f"{d}️⃣")
+            # ── REAKCJE NA WSZYSTKIE WYSTĘPUJĄCE LICZBY ──
+            unique_numbers = sorted(set(dice))
+            for num in unique_numbers:
+                await msg.add_reaction(f"{num}️⃣")
+
             await msg.add_reaction("✅")
             await msg.add_reaction("❌")
 
@@ -218,7 +219,7 @@ class Farkle(commands.Cog):
                 reacted_emoji = str(reaction.emoji)
                 if reacted_emoji[0].isdigit():
                     num = int(reacted_emoji[0])
-                    if num in scoring_nums:
+                    if num in unique_numbers:  # tylko te, które faktycznie wypadły
                         kept_nums.add(num)
                         kept_counts[num] += 1
                 if reacted_emoji in ["✅", "❌"]:
@@ -258,7 +259,7 @@ class Farkle(commands.Cog):
             if invalid or not has_points or points == 0:
                 await ctx.send(embed=discord.Embed(
                     title="💀 FARKLE!",
-                    description="Wybrałeś kostki, które nie dają punktów (lub za dużo)!\nTura przepada.",
+                    description="Wybrałeś kombinację, która nie daje punktów!\nTura przepada.",
                     color=0xff0000
                 ))
                 return
@@ -291,7 +292,8 @@ class Farkle(commands.Cog):
                 await ctx.send("🤖 Bot farklował! 😞")
                 return
 
-            scoring_nums = self.get_scoring_nums(dice)
+            # Bot wybiera tylko punktujące (żeby nie farklował bez sensu)
+            scoring_nums = self.get_scoring_nums(dice)  # stara wersja – tylko punktujące
             counts = Counter(dice)
             kept = []
             for num in scoring_nums:
@@ -383,14 +385,8 @@ class Farkle(commands.Cog):
 
     @staticmethod
     def get_scoring_nums(dice):
-        counts = Counter(dice)
-        scoring = set()
-        if len(dice) == 6 and sorted(dice) == [1,2,3,4,5,6]:
-            return set(range(1,7))
-        for num, c in counts.items():
-            if c >= 3 or num in (1,5):
-                scoring.add(num)
-        return scoring
+        # Teraz zwraca WSZYSTKIE unikalne liczby z rzutu – reakcje będą na wszystkie kości
+        return set(dice)
 
 async def setup(bot):
     await bot.add_cog(Farkle(bot))
