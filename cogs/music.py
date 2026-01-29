@@ -31,63 +31,32 @@ class Music(commands.Cog):
         self.queue = {}
         self.history = {}
 
-async def play_next(self, ctx):
-        """Odtwarza następną piosenkę z kolejki"""
+    async def play_next(self, ctx):
         vc = ctx.guild.voice_client
         if not vc or not vc.is_connected():
-            print("[MUSIC] Brak voice client lub nie połączony")
             return
 
         if ctx.guild.id not in self.queue or not self.queue[ctx.guild.id]:
-            print("[MUSIC] Kolejka pusta")
             await ctx.send("Koniec kolejki! 🎶")
             return
 
-        # Usuwamy piosenkę Z KOLEJKI PRZED odtwarzaniem
+        # Bierzemy i USUWAMY pierwszą piosenkę z kolejki
         next_song = self.queue[ctx.guild.id].popleft()
-        print(f"[MUSIC] Próbuję puścić: {next_song['title']} | URL: {next_song['url']}")
 
         try:
             player = await YTDLSource.from_url(next_song['url'], loop=self.bot.loop)
-            vc.play(
-                player,
-                after=lambda e: asyncio.run_coroutine_threadsafe(
-                    self.play_next_after(ctx), self.bot.loop
-                )
-            )
+            vc.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next_after(ctx), self.bot.loop))
             await ctx.send(f'🎶 Teraz gra: **{next_song["title"]}**')
         except Exception as e:
-            print(f"[MUSIC] Błąd odtwarzania: {e}")
-            await ctx.send(f"Błąd odtwarzania: {e}")
-            # Próbujemy następnej piosenki
-            await self.play_next(ctx)
+            print(f"Błąd przy odtwarzaniu: {e}")
+            await self.play_next(ctx)  # kontynuuj z następną jeśli błąd
 
     async def play_next_after(self, ctx):
-        """Wywoływane po zakończeniu utworu (lub błędzie)"""
         if ctx.guild.id in self.queue and self.queue[ctx.guild.id]:
-            # Usunięcie aktualnego utworu z historii (jeśli chcesz)
-            current = self.queue[ctx.guild.id].popleft()  # to już niepotrzebne, bo usunęliśmy wcześniej
+            current = self.queue[ctx.guild.id].popleft()
             if ctx.guild.id not in self.history:
                 self.history[ctx.guild.id] = deque(maxlen=MAX_HISTORY)
             self.history[ctx.guild.id].append(current)
-        else:
-            print("[MUSIC] Kolejka pusta po zakończeniu utworu")
-        
-        # Próbujemy następnej
-        await self.play_next(ctx)
-
-async def play_next_after(self, ctx):
-        """Wywoływane po zakończeniu utworu (lub błędzie)"""
-        if ctx.guild.id in self.queue and self.queue[ctx.guild.id]:
-            # Usunięcie aktualnego utworu z historii (jeśli chcesz)
-            current = self.queue[ctx.guild.id].popleft()  # to już niepotrzebne, bo usunęliśmy wcześniej
-            if ctx.guild.id not in self.history:
-                self.history[ctx.guild.id] = deque(maxlen=MAX_HISTORY)
-            self.history[ctx.guild.id].append(current)
-        else:
-            print("[MUSIC] Kolejka pusta po zakończeniu utworu")
-        
-        # Próbujemy następnej
         await self.play_next(ctx)
 
     @commands.command()
@@ -112,7 +81,7 @@ async def play_next_after(self, ctx):
         else:
             await ctx.send("Nie jestem na żadnym kanale!")
 
-@commands.command()
+    @commands.command()
     async def graj(self, ctx, *, query):
         """Gra piosenkę z YouTube / link / wyszukiwanie"""
         if not ctx.author.voice:
@@ -140,9 +109,8 @@ async def play_next_after(self, ctx):
         # Dodajemy do kolejki
         self.queue[ctx.guild.id].append({"title": player.title, "url": query})
 
-        # Jeśli nic nie gra → startujemy NATYCHMIAST
+        # Jeśli nic nie gra → startujemy natychmiast
         if not vc.is_playing() and not vc.is_paused():
-            print("[MUSIC] Nic nie gra – startuję odtwarzanie")
             await self.play_next(ctx)
         else:
             position = len(self.queue[ctx.guild.id])
