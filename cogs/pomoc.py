@@ -96,7 +96,7 @@ class Pomoc(commands.Cog):
                 "`ostrzeżenia [@osoba]` – pokazuje ostrzeżenia danej osoby\n"
                 "`usuńostrzeżenie @osoba [numer]` – usuwa ostrzeżenie (ostatnie lub konkretne)\n"
                 "`czyść [ilość]` – usuwa wiadomości (domyślnie 50, max 1000)\n"
-                "`ankieta \"Pytanie?\" \"Opcja1\" \"Opcja2\" ...` – tworzy ankietę z reakcjami (2–10 opcji)\n"
+                "`ankieta \"Pytanie?\" \"Opcja1\" \"Opcja2\" musisz dodać _ do pytania np: siema_chcę_ktoś_pograć?` – tworzy ankietę z reakcjami (2–10 opcji)\n"
                 " • Głosuj klikając 1️⃣ 2️⃣ itd.\n"
                 " • Kliknij 👥 aby zobaczyć kto na co zagłosował (w prywatnej wiadomości)"
             ),
