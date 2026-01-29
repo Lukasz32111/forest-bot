@@ -1,14 +1,11 @@
-# cogs/music.py
+# cogs/music.py – TESTOWA WERSJA BEZ KOLEJKI, TYLKO JEDNA PIOSENKA
 import discord
 from discord.ext import commands
-import yt_dlp
-import asyncio
-
-from config import YTDL_FORMAT_OPTIONS, FFMPEG_OPTIONS
-
-ytdl = yt_dlp.YoutubeDL(YTDL_FORMAT_OPTIONS)
-
 from pytube import YouTube
+import asyncio
+import traceback  # do lepszych logów błędów
+
+from config import FFMPEG_OPTIONS
 
 class YTDLSource(discord.PCMVolumeTransformer):
     def __init__(self, source, *, data, volume=0.3):
@@ -20,11 +17,16 @@ class YTDLSource(discord.PCMVolumeTransformer):
     @classmethod
     async def from_url(cls, url, *, loop=None):
         loop = loop or asyncio.get_event_loop()
-        yt = await loop.run_in_executor(None, lambda: YouTube(url))
-        stream = yt.streams.filter(only_audio=True).first()
-        if not stream:
-            raise Exception("Nie znaleziono strumienia audio")
-        return cls(discord.FFmpegPCMAudio(stream.url, **FFMPEG_OPTIONS), data={'title': yt.title, 'url': stream.url}, volume=0.3)
+        try:
+            yt = await loop.run_in_executor(None, lambda: YouTube(url))
+            stream = yt.streams.filter(only_audio=True).first()
+            if not stream:
+                raise ValueError("Nie znaleziono strumienia audio")
+            print(f"[MUSIC] Pobrano stream: {stream.url}")
+            return cls(discord.FFmpegPCMAudio(stream.url, **FFMPEG_OPTIONS), data={'title': yt.title, 'url': stream.url}, volume=0.3)
+        except Exception as e:
+            print(f"[MUSIC] Błąd w pytube.from_url: {str(e)}")
+            raise e
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -50,36 +52,47 @@ class Music(commands.Cog):
         else:
             await ctx.send("Nie jestem na żadnym kanale!")
 
-@commands.command()
-async def graj(self, ctx, *, query):
-    if not ctx.author.voice:
-        await ctx.send("Musisz być na kanale głosowym!")
-        return
+    @commands.command()
+    async def graj(self, ctx, *, query):
+        """Gra jedną piosenkę z YouTube"""
+        print(f"[MUSIC] Komenda graj uruchomiona: {query}")
+        if not ctx.author.voice:
+            await ctx.send("Musisz być na kanale głosowym!")
+            return
 
-    vc = ctx.guild.voice_client
-    if not vc:
-        await ctx.invoke(self.bot.get_command('dołącz'))
-        await asyncio.sleep(1.5)
         vc = ctx.guild.voice_client
 
-    if vc.is_playing() or vc.is_paused():
-        vc.stop()
-        await ctx.send("Zatrzymałem poprzedni utwór – puszczam nowy 🎶")
+        if not vc:
+            await ctx.invoke(self.bot.get_command('dołącz'))
+            await asyncio.sleep(2)  # więcej czasu na połączenie
+            vc = ctx.guild.voice_client
+            if not vc:
+                await ctx.send("Nie udało się dołączyć do kanału – spróbuj ponownie.")
+                return
 
-    try:
-        async with ctx.typing():
-            player = await YTDLSource.from_url(query, loop=self.bot.loop)
-    except Exception as e:
-        await ctx.send("Nie udało się znaleźć utworu 😢")
-        print(f"Błąd w graj: {e}")
-        return
+        # Zatrzymujemy poprzedni utwór jeśli gra
+        if vc.is_playing() or vc.is_paused():
+            vc.stop()
+            await ctx.send("Zatrzymałem poprzedni utwór – puszczam nowy 🎶")
 
-    try:
-        vc.play(player)
-        await ctx.send(f'🎶 Teraz gra: **{player.title}**')
-    except Exception as e:
-        await ctx.send(f"Błąd odtwarzania: {e}")
-        print(f"Błąd play: {e}")
+        try:
+            async with ctx.typing():
+                print("[MUSIC] Szukam i pobieram utwór...")
+                player = await YTDLSource.from_url(query, loop=self.bot.loop)
+                print("[MUSIC] Utwór pobrany, puszczam...")
+        except Exception as e:
+            error_msg = f"Błąd pobierania utworu: {str(e)}\nSprawdź konsolę lub link."
+            await ctx.send(error_msg)
+            print(f"[MUSIC] Pełny błąd: {traceback.format_exc()}")
+            return
+
+        try:
+            vc.play(player)
+            await ctx.send(f'🎶 Teraz gra: **{player.title}**')
+            print("[MUSIC] vc.play wywołane – powinno być słychać")
+        except Exception as e:
+            await ctx.send(f"Błąd odtwarzania: {str(e)}")
+            print(f"[MUSIC] Błąd play: {traceback.format_exc()}")
 
     @commands.command()
     async def skip(self, ctx):
@@ -89,24 +102,6 @@ async def graj(self, ctx, *, query):
             return
         vc.stop()
         await ctx.send("⏭ Przeskoczono!")
-
-    @commands.command()
-    async def pauza(self, ctx):
-        vc = ctx.guild.voice_client
-        if vc and vc.is_playing():
-            vc.pause()
-            await ctx.send("Pauza ⏸")
-        else:
-            await ctx.send("Nic nie odtwarzam lub już w pauzie!")
-
-    @commands.command()
-    async def wznów(self, ctx):
-        vc = ctx.guild.voice_client
-        if vc and vc.is_paused():
-            vc.resume()
-            await ctx.send("Wznawiam ▶")
-        else:
-            await ctx.send("Nie jestem w pauzie!")
 
     @commands.command()
     async def zakończ(self, ctx):
