@@ -114,29 +114,57 @@ class Moderacja(commands.Cog):
         except Exception as e:
             await ctx.send(f"Błąd: {e}")
 
-    @commands.command(name="czyść", aliases=["purge", "usuńwiadomości", "clear"])
-    @commands.has_permissions(manage_messages=True)
-    @commands.bot_has_permissions(manage_messages=True)
-    async def czyść(self, ctx, limit: int = 50, member: discord.Member = None):
-        """
-        Usuwa ostatnie wiadomości z kanału
-        8czyść [ilość] [@osoba opcjonalnie]
-        """
-        if limit < 1 or limit > 1000:
-            return await ctx.send("Możesz usunąć od 1 do 1000 wiadomości naraz.")
+@commands.command(name="czyść", aliases=["purge", "usuńwiadomości", "clear"])
+@commands.has_permissions(manage_messages=True)
+@commands.bot_has_permissions(manage_messages=True)
+async def czyść(self, ctx, limit: str = "50", member: discord.Member = None):
+    """
+    Usuwa ostatnie wiadomości z kanału
+    8czyść [ilość] [@osoba opcjonalnie]
+    Przykład: 8czyść 50 @Daniel
+    """
+    try:
+        limit_int = int(limit)
+    except ValueError:
+        return await ctx.send(
+            "❌ Pierwszy argument musi być liczbą!\n"
+            "Przykład: `8czyść 50` lub `8czyść 20 @Daniel`"
+        )
 
-        def check(msg):
-            return member is None or msg.author == member
+    if limit_int < 1 or limit_int > 1000:
+        return await ctx.send("Możesz usunąć od 1 do 1000 wiadomości naraz.")
 
-        try:
-            deleted = await ctx.channel.purge(limit=limit + 1, check=check)
-            msg = await ctx.send(f"Usunięto **{len(deleted)-1}** wiadomości.")
-            await asyncio.sleep(3)
-            await msg.delete()
-        except discord.Forbidden:
-            await ctx.send("Nie mam uprawnień do usuwania wiadomości w tym kanale.")
-        except Exception as e:
-            await ctx.send(f"Błąd podczas usuwania: {e}")
+    def check(msg):
+        # Jeśli podano osobę → usuwamy tylko jej wiadomości
+        if member:
+            return msg.author == member
+        # Jeśli nie podano → usuwamy wszystkie oprócz komendy
+        return msg.id != ctx.message.id
+
+    try:
+        deleted = await ctx.channel.purge(limit=limit_int + 1, check=check, bulk=True)
+        
+        # Liczymy tylko te, które faktycznie usunęliśmy od danej osoby (lub wszystkie jeśli nie podano)
+        if member:
+            deleted_count = len(deleted) - 1 if ctx.message in deleted else len(deleted)  # -1 jeśli komenda została usunięta
+        else:
+            deleted_count = len(deleted) - 1  # zawsze odejmujemy komendę
+
+        if deleted_count <= 0:
+            msg = await ctx.send("Nie znaleziono wiadomości do usunięcia.")
+        else:
+            if member:
+                msg = await ctx.send(f"Usunięto **{deleted_count}** wiadomości od {member.mention}.")
+            else:
+                msg = await ctx.send(f"Usunięto **{deleted_count}** wiadomości.")
+        
+        await asyncio.sleep(3)
+        await msg.delete()
+
+    except discord.Forbidden:
+        await ctx.send("Nie mam uprawnień do usuwania wiadomości w tym kanale.")
+    except Exception as e:
+        await ctx.send(f"Błąd podczas usuwania: {e}")
 
     def parse_duration(self, time_str: str) -> timedelta:
         time_str = time_str.lower().replace(" ", "")
