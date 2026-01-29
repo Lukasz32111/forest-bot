@@ -55,59 +55,36 @@ class Pomoc(commands.Cog):
         """Zwraca listę embedów – każda strona to jeden embed"""
         pages = []
 
-        # Strona 1 – wstęp + Muzyka
+        # Strona 1 – wstęp + Farkle + Memy (muzyka usunięta)
         embed1 = discord.Embed(
-            title="📚 Pomoc – strona 1/4",
+            title="📚 Pomoc – strona 1/3",
             description="Prefix: **8** | Używaj strzałek ◀️ ▶️ do przełączania",
             color=0x5865f2
         )
         embed1.add_field(
-            name="🎵 Muzyka z YouTube",
-            value=(
-                "`dołącz` – dołącza do kanału głosowego\n"
-                "`opuść` – wychodzi z kanału\n"
-                "`graj <nazwa/link>` – dodaje i odtwarza\n"
-                "`skip` – pomija utwór\n"
-                "`poprzedni` – wraca do poprzedniego\n"
-                "`pauza` / `wznów` – pauza / wznowienie\n"
-                "`kolejka` – pokazuje kolejkę\n"
-                "`podobne` – podobny utwór do ostatniego\n"
-                "`zakończ` – zatrzymuje i czyści kolejkę"
-            ),
-            inline=False
-        )
-        pages.append(embed1)
-
-        # Strona 2 – Farkle + Memy
-        embed2 = discord.Embed(
-            title="📚 Pomoc – strona 2/4",
-            description="Prefix: **8** | ◀️ ▶️ do nawigacji",
-            color=0x5865f2
-        )
-        embed2.add_field(
             name="🎲 Farkle",
             value=(
                 "`rzut [@osoba]` – zaczyna nową grę\n"
-                "  • bez @ – grasz z botem\n"
-                "  • z @ – grasz z inną osobą (1v1)\n"
+                " • bez @ – grasz z botem\n"
+                " • z @ – grasz z inną osobą (1v1)\n"
                 "`skończ` – przerywa aktualną grę"
             ),
             inline=False
         )
-        embed2.add_field(
+        embed1.add_field(
             name="😂 Memy",
             value="`meme` – losowy mem (głównie anglojęzyczne)\n`polmeme` – losowy polski mem",
             inline=False
         )
-        pages.append(embed2)
+        pages.append(embed1)
 
-        # Strona 3 – Moderacja
-        embed3 = discord.Embed(
-            title="📚 Pomoc – strona 3/4",
+        # Strona 2 – Moderacja
+        embed2 = discord.Embed(
+            title="📚 Pomoc – strona 2/3",
             description="Prefix: **8** | ◀️ ▶️ do nawigacji",
             color=0x5865f2
         )
-        embed3.add_field(
+        embed2.add_field(
             name="🛡️ Moderacja (wymaga uprawnień)",
             value=(
                 "`wyrzuc @osoba [powód]` – wyrzuca z serwera\n"
@@ -120,20 +97,20 @@ class Pomoc(commands.Cog):
                 "`usuńostrzeżenie @osoba [numer]` – usuwa ostrzeżenie (ostatnie lub konkretne)\n"
                 "`czyść [ilość]` – usuwa wiadomości (domyślnie 50, max 1000)\n"
                 "`ankieta \"Pytanie?\" \"Opcja1\" \"Opcja2\" ...` – tworzy ankietę z reakcjami (2–10 opcji)\n"
-                "  • Głosuj klikając 1️⃣ 2️⃣ itd.\n"
-                "  • Kliknij 👥 aby zobaczyć kto na co zagłosował (w prywatnej wiadomości)"
+                " • Głosuj klikając 1️⃣ 2️⃣ itd.\n"
+                " • Kliknij 👥 aby zobaczyć kto na co zagłosował (w prywatnej wiadomości)"
             ),
             inline=False
         )
-        pages.append(embed3)
+        pages.append(embed2)
 
-        # Strona 4 – informacje dodatkowe
-        embed4 = discord.Embed(
-            title="📚 Pomoc – strona 4/4",
+        # Strona 3 – informacje dodatkowe + ticket
+        embed3 = discord.Embed(
+            title="📚 Pomoc – strona 3/3",
             description="Prefix: **8** | Koniec listy",
             color=0x5865f2
         )
-        embed4.add_field(
+        embed3.add_field(
             name="Dodatkowe info",
             value=(
                 "`ticket [powód]` – tworzy prywatny kanał na zgłoszenie / pytanie\n"
@@ -142,7 +119,7 @@ class Pomoc(commands.Cog):
             ),
             inline=False
         )
-        pages.append(embed4)
+        pages.append(embed3)
 
         return pages
 
