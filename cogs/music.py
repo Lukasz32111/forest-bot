@@ -3,7 +3,6 @@ import discord
 from discord.ext import commands
 import yt_dlp
 import asyncio
-from collections import deque
 
 from config import YTDL_FORMAT_OPTIONS, FFMPEG_OPTIONS
 
@@ -27,28 +26,6 @@ class YTDLSource(discord.PCMVolumeTransformer):
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.queue = {}  # guild_id -> deque piosenek
-
-    async def play_next(self, ctx):
-        vc = ctx.guild.voice_client
-        if not vc or not vc.is_connected():
-            return
-
-        if ctx.guild.id not in self.queue or not self.queue[ctx.guild.id]:
-            await ctx.send("Koniec kolejki! 🎶")
-            return
-
-        # Bierzemy i USUWAMY pierwszą piosenkę z kolejki
-        next_song = self.queue[ctx.guild.id].popleft()
-
-        try:
-            player = await YTDLSource.from_url(next_song['url'], loop=self.bot.loop)
-            vc.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(ctx), self.bot.loop))
-            await ctx.send(f'🎶 Teraz gra: **{next_song["title"]}**')
-        except Exception as e:
-            print(f"Błąd odtwarzania: {e}")
-            await ctx.send(f"Błąd odtwarzania: {e}")
-            await self.play_next(ctx)  # próbuj następną
 
     @commands.command()
     async def dołącz(self, ctx):
@@ -65,7 +42,6 @@ class Music(commands.Cog):
     @commands.command()
     async def opuść(self, ctx):
         if ctx.guild.voice_client:
-            self.queue.pop(ctx.guild.id, None)
             await ctx.guild.voice_client.disconnect()
             await ctx.send("Opuszczam kanał głosowy 👋")
         else:
@@ -73,20 +49,23 @@ class Music(commands.Cog):
 
     @commands.command()
     async def graj(self, ctx, *, query):
-        """Gra piosenkę z YouTube / link / wyszukiwanie"""
+        """Gra jedną piosenkę z YouTube / link / wyszukiwanie"""
         if not ctx.author.voice:
             await ctx.send("Musisz być na kanale głosowym!")
             return
 
-        # Dołączamy jeśli nie jesteśmy podłączeni
-        if not ctx.guild.voice_client:
-            await ctx.invoke(self.bot.get_command('dołącz'))
-            await asyncio.sleep(1.5)
-
         vc = ctx.guild.voice_client
 
-        if ctx.guild.id not in self.queue:
-            self.queue[ctx.guild.id] = deque()
+        # Dołączamy jeśli nie jesteśmy
+        if not vc:
+            await ctx.invoke(self.bot.get_command('dołącz'))
+            await asyncio.sleep(1.5)
+            vc = ctx.guild.voice_client
+
+        # Jeśli coś już gra – zatrzymujemy
+        if vc.is_playing() or vc.is_paused():
+            vc.stop()
+            await ctx.send("Zatrzymałem poprzedni utwór – puszczam nowy 🎶")
 
         try:
             async with ctx.typing():
@@ -96,37 +75,21 @@ class Music(commands.Cog):
             print(f"Błąd w graj: {e}")
             return
 
-        # Dodajemy do kolejki
-        self.queue[ctx.guild.id].append({"title": player.title, "url": query})
-
-        # Jeśli nic nie gra → startujemy natychmiast
-        if not vc.is_playing() and not vc.is_paused():
-            await self.play_next(ctx)
-        else:
-            position = len(self.queue[ctx.guild.id])
-            await ctx.send(f'✅ Dodano do kolejki: **{player.title}** (pozycja {position})')
+        try:
+            vc.play(player)
+            await ctx.send(f'🎶 Teraz gra: **{player.title}**')
+        except Exception as e:
+            await ctx.send(f"Błąd odtwarzania: {e}")
+            print(f"Błąd play: {e}")
 
     @commands.command()
     async def skip(self, ctx):
-        if not ctx.guild.voice_client or not ctx.guild.voice_client.is_playing():
+        vc = ctx.guild.voice_client
+        if not vc or not vc.is_playing():
             await ctx.send("Nic nie odtwarzam!")
             return
-        ctx.guild.voice_client.stop()
-        await ctx.send("⏭ Przeskoczono do następnego utworu!")
-
-    @commands.command()
-    async def kolejka(self, ctx):
-        if ctx.guild.id not in self.queue or not self.queue[ctx.guild.id]:
-            await ctx.send("Kolejka jest pusta!")
-            return
-        entries = list(self.queue[ctx.guild.id])
-        message = "**Aktualna kolejka:**\n"
-        for i, song in enumerate(entries, 1):
-            message += f"{i}. **{song['title']}**\n"
-            if len(message) > 1800:
-                message += "... i więcej"
-                break
-        await ctx.send(message)
+        vc.stop()
+        await ctx.send("⏭ Przeskoczono!")
 
     @commands.command()
     async def pauza(self, ctx):
@@ -148,10 +111,11 @@ class Music(commands.Cog):
 
     @commands.command()
     async def zakończ(self, ctx):
-        if ctx.guild.voice_client:
-            self.queue.pop(ctx.guild.id, None)
-            ctx.guild.voice_client.stop()
-            await ctx.send("Zakończyłem puszczać muzykę ⏹ Kolejka wyczyszczona.")
+        vc = ctx.guild.voice_client
+        if vc:
+            vc.stop()
+            await vc.disconnect()
+            await ctx.send("Zakończyłem puszczać muzykę ⏹")
         else:
             await ctx.send("Nie jestem na kanale!")
 
