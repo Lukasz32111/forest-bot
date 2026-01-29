@@ -8,7 +8,7 @@ import asyncio
 class Farkle(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.games = {}
+        self.games = {}  # channel_id -> game dict
 
     @commands.command(aliases=['farkle', 'gra'])
     async def rzut(self, ctx, opponent: discord.Member = None):
@@ -20,7 +20,6 @@ class Farkle(commands.Cog):
         player1 = ctx.author
 
         if opponent is None:
-            # vs BOT
             await ctx.send(f"🎲 **{player1.mention}** zaczyna grę Farkle **z botem**!")
             game = {
                 "mode": "vs_bot",
@@ -35,7 +34,6 @@ class Farkle(commands.Cog):
             await self.choose_target(ctx, game)
 
         else:
-            # PvP
             if opponent == player1:
                 return await ctx.send("Nie możesz grać sam ze sobą 😅")
             if opponent.bot:
@@ -43,7 +41,8 @@ class Farkle(commands.Cog):
 
             challenge_msg = await ctx.send(
                 f"🎲 {player1.mention} rzuca wyzwanie w Farkle!\n"
-                f"{opponent.mention}, akceptujesz? Reaguj **✅** tak / **❌** nie (60s)"
+                f"{opponent.mention}, akceptujesz? Reaguj **✅** tak / **❌** nie\n"
+                "Masz 60 sekund."
             )
             await challenge_msg.add_reaction("✅")
             await challenge_msg.add_reaction("❌")
@@ -54,7 +53,10 @@ class Farkle(commands.Cog):
             try:
                 reaction, _ = await self.bot.wait_for("reaction_add", timeout=60.0, check=check)
                 if str(reaction.emoji) == "❌":
-                    return await ctx.send(f"{opponent.mention} odmówił. Gra anulowana.")
+                    await ctx.send(f"{opponent.mention} odmówił. Gra anulowana.")
+                    return
+
+                await ctx.send(f"{opponent.mention} zaakceptował! Zaczynamy 1v1 🎲")
 
                 starter = random.choice([player1, opponent])
                 game = {
@@ -67,49 +69,64 @@ class Farkle(commands.Cog):
                     "channel": ctx.channel
                 }
                 self.games[channel_id] = game
-                await ctx.send(f"{opponent.mention} zaakceptował! **{starter.mention}** zaczyna!")
+                await ctx.send(f"Pierwszy rzuca: **{starter.mention}**!")
                 await self.choose_target(ctx, game)
 
             except asyncio.TimeoutError:
-                await ctx.send("Czas minął – wyzwanie anulowane.")
+                await ctx.send("Czas na akceptację minął. Gra anulowana.")
 
     async def choose_target(self, ctx, game):
-        embed = discord.Embed(title="🎲 Wybór celu gry", color=0x2b2d31)
-        embed.description = "🇦 → 1000 pkt\n🇧 → 2000 pkt\n🇨 → 5000 pkt (klasyczna)\n🇩 → 10000 pkt\n\n❓ = poradnik"
-        embed.set_footer(text=f"Reaguj literką • Gracz: {game['current_turn'].display_name}")
+        if ctx.channel.id not in self.games:
+            return
+
+        embed = discord.Embed(
+            title="🎲 Wybór celu gry",
+            description="🇦 → 1000 pkt\n🇧 → 2000 pkt\n🇨 → 5000 pkt (klasyczna)\n🇩 → 10000 pkt\n\n❓ = poradnik",
+            color=0x2b2d31
+        )
+        embed.set_footer(text=f"Reaguj wybraną literką | Gracz: {game['current_turn'].display_name}")
         msg = await ctx.send(embed=embed)
+
         for r in ['🇦', '🇧', '🇨', '🇩', '❓']:
             await msg.add_reaction(r)
 
         def check(r, u):
-            return u == game["current_turn"] and str(r.emoji) in "🇦🇧🇨🇩❓" and r.message.id == msg.id
+            return u == game["current_turn"] and str(r.emoji) in ['🇦','🇧','🇨','🇩','❓'] and r.message.id == msg.id
 
         while ctx.channel.id in self.games:
             try:
-                reaction, _ = await self.bot.wait_for("reaction_add", timeout=180, check=check)
+                reaction, _ = await self.bot.wait_for('reaction_add', timeout=180, check=check)
             except asyncio.TimeoutError:
                 await ctx.send("Czas minął – gra anulowana.")
                 self.games.pop(ctx.channel.id, None)
                 return
 
-            if str(reaction.emoji) == '❓':
-                await ctx.send(
-                    "**Poradnik Farkle**\n\n"
-                    "• Pojedyncza 1 → 100 pkt\n"
-                    "• Pojedyncza 5 → 50 pkt\n"
-                    "• Trójka (lub więcej) → liczba × 100 (trójka 1 = 1000)\n"
-                    "• Strit 1-2-3-4-5-6 → 1500 pkt\n\n"
-                    "**Możesz wybrać dowolne kości – jeśli nie dadzą punktów → farkle!**"
+            emoji = str(reaction.emoji)
+            if emoji == '❓':
+                poradnik = (
+                    "**📜 Poradnik Farkle**\n\n"
+                    "• 1 = 100 pkt\n"
+                    "• 5 = 50 pkt\n"
+                    "• Trójka takich samych = liczba × 100 (trójka 1 = 1000)\n"
+                    "• Strit 1-6 = 1500 pkt\n"
+                    "**Hot Dice** – zużyjesz wszystkie kostki → rzucasz 6 nowych!\n"
+                    "**Farkle** – zero punktów w rzucie → tracisz punkty tury!\n\n"
+                    "Możesz wybrać **dowolne kości** – jeśli choć jedna nie da punktów → farkle!"
                 )
+                await ctx.send(poradnik)
                 continue
 
-            targets = {'🇦': 1000, '🇧': 2000, '🇨': 5000, '🇩': 10000}
-            game["target"] = targets[str(reaction.emoji)]
-            await ctx.send(f"✅ Cel: **{game['target']}** punktów! Zaczynamy!")
-            await self.play_game(ctx, game)
-            return
+            options = {'🇦': 1000, '🇧': 2000, '🇨': 5000, '🇩': 10000}
+            if emoji in options:
+                game["target"] = options[emoji]
+                await ctx.send(f"✅ Cel gry: **{game['target']}** punktów! Zaczynamy!")
+                await self.play_game(ctx, game)
+                return
 
     async def play_game(self, ctx, game):
+        if ctx.channel.id not in self.games:
+            return
+
         await self.show_game_state(ctx, game)
 
         while ctx.channel.id in self.games:
@@ -131,16 +148,24 @@ class Farkle(commands.Cog):
 
             await self.show_game_state(ctx, game)
 
-            p1_score = game["scores"][game["player1"].id]
-            p2_score = game["scores"].get("bot", 0) if game["mode"] == "vs_bot" else game["scores"][game["player2"].id]
+            p1_score = game["scores"].get(game["player1"].id, 0)
+            p2_score = game["scores"].get("bot" if game["mode"] == "vs_bot" else game["player2"].id, 0)
 
-            if p1_score >= game["target"] or p2_score >= game["target"]:
-                winner = game["player1"] if p1_score >= game["target"] else ( "Bot" if game["mode"] == "vs_bot" else game["player2"] )
-                await ctx.send(f"🏆 **{winner.mention if hasattr(winner, 'mention') else winner} wygrywa!**")
+            if p1_score >= game["target"]:
+                winner = game["player1"].mention
+                await ctx.send(f"🏆 **{winner} wygrywa!** ({p1_score} pkt)")
+                self.games.pop(ctx.channel.id, None)
+                return
+            elif p2_score >= game["target"]:
+                winner = "Bot" if game["mode"] == "vs_bot" else game["player2"].mention
+                await ctx.send(f"🏆 **{winner} wygrywa!** ({p2_score} pkt)")
                 self.games.pop(ctx.channel.id, None)
                 return
 
     async def player_turn(self, ctx, game, player):
+        if ctx.channel.id not in self.games:
+            return
+
         turn_points = 0
         remaining_dice = 6
         turn_num = 1
@@ -148,17 +173,27 @@ class Farkle(commands.Cog):
         while ctx.channel.id in self.games:
             dice = [random.randint(1, 6) for _ in range(remaining_dice)]
             if not self.has_scoring_combo(dice):
-                await ctx.send(embed=discord.Embed(title="💀 FARKLE!", description=f"{player.mention} – zero punktujących kombinacji!", color=0xff0000))
+                await ctx.send(embed=discord.Embed(
+                    title="💀 FARKLE!",
+                    description=f"{player.mention} – brak punktujących kombinacji!",
+                    color=0xff0000
+                ))
                 return
 
             dice_str = " ".join(f"**{d}**" for d in sorted(dice))
-            embed = discord.Embed(title=f"🎲 Rzut {turn_num} – {player.display_name}", description=f"Kostki: {dice_str}\n\nPunkty w turze: **{turn_points}**", color=0x2b2d31)
-            embed.set_footer(text="Kliknij dowolne cyfry które chcesz zachować • ✅ kontynuuj • ❌ bankuj • 90s")
+            embed = discord.Embed(
+                title=f"🎲 Rzut {turn_num} – {player.display_name}",
+                description=f"Kostki: {dice_str}\n\n**Punkty w turze:** {turn_points}",
+                color=0x2b2d31
+            )
+            embed.set_footer(text="Kliknij dowolne cyfry które chcesz zachować | ✅ kontynuuj | ❌ bankuj | 90s")
             msg = await ctx.send(embed=embed)
 
-            # WSZYSTKIE liczby które wypadły – nawet bezużyteczne
-            for num in sorted(set(dice)):
+            # Reakcje na WSZYSTKIE unikalne liczby z rzutu
+            unique_numbers = sorted(set(dice))
+            for num in unique_numbers:
                 await msg.add_reaction(f"{num}️⃣")
+
             await msg.add_reaction("✅")
             await msg.add_reaction("❌")
 
@@ -167,36 +202,69 @@ class Farkle(commands.Cog):
             def check(r, u):
                 return u == player and r.message.id == msg.id and ctx.channel.id in self.games
 
-            decision = None
+            reacted_emoji = None
             while ctx.channel.id in self.games:
                 try:
                     reaction, _ = await self.bot.wait_for("reaction_add", timeout=90, check=check)
                 except asyncio.TimeoutError:
-                    await ctx.send(f"⏰ Czas minął – bankuję **{turn_points}** pkt!")
-                    game["scores"][player.id] += turn_points
+                    if ctx.channel.id in self.games:
+                        await ctx.send(f"⏰ Czas minął – bankuję **{turn_points}** pkt!")
+                        game["scores"][player.id] += turn_points
                     return
 
-                emoji = str(reaction.emoji)
-                if emoji in "1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣":
-                    num = int(emoji[0])
-                    if num in dice:
+                reacted_emoji = str(reaction.emoji)
+                if reacted_emoji[0].isdigit():
+                    num = int(reacted_emoji[0])
+                    if num in unique_numbers:
                         kept_counts[num] += 1
-                elif emoji in ["✅", "❌"]:
-                    decision = emoji
+                if reacted_emoji in ["✅", "❌"]:
                     break
 
-            # budujemy listę zachowanych kości
-            kept_list = []
-            dice_count = Counter(dice)
-            for num, clicks in kept_counts.items():
-                kept_list.extend([num] * min(clicks, dice_count[num]))
+            if ctx.channel.id not in self.games:
+                return
 
+            # Budujemy zachowane kości
+            kept_list = []
+            dice_counts = Counter(dice)
+            for num, count in kept_counts.items():
+                kept_list.extend([num] * min(count, dice_counts[num]))
+
+            # Obliczamy punkty
             points, _ = self.calculate_points(kept_list)
 
-            if decision == "✅":
-                if points == 0:
-                    await ctx.send(embed=discord.Embed(title="💀 FARKLE!", description="Wybrane kości nie dały żadnych punktów!", color=0xff0000))
-                    return
+            # Walidacja – czy WSZYSTKO co wybrano dało punkty?
+            scoring_used = Counter()
+            temp_counts = Counter(kept_list)
+
+            for num, count in temp_counts.items():
+                triples = count // 3
+                if triples > 0:
+                    scoring_used[num] += triples * 3
+                remaining = count - scoring_used[num]
+                if num == 1:
+                    scoring_used[1] += remaining
+                if num == 5:
+                    scoring_used[5] += remaining
+
+            invalid = False
+            for num in kept_counts:
+                selected = kept_counts[num]
+                used = scoring_used.get(num, 0)
+                if selected > used:
+                    invalid = True
+                    break
+
+            # Decyzja
+            if invalid or points == 0:
+                await ctx.send(embed=discord.Embed(
+                    title="💀 FARKLE!",
+                    description="Wybrałeś kości, które nie dały punktów (lub dodałeś bezużyteczne)!\nTura przepada.",
+                    color=0xff0000
+                ))
+                return  # farkle → koniec tury
+
+            # OK – kontynuacja
+            if reacted_emoji == "✅":
                 turn_points += points
                 remaining_dice -= len(kept_list)
                 await ctx.send(f"+**{points}** pkt → razem w turze: **{turn_points}**")
@@ -204,54 +272,84 @@ class Farkle(commands.Cog):
                     await ctx.send(f"🔥 **HOT DICE!** {player.mention} rzuca znowu 6 kostkami!")
                     remaining_dice = 6
                 turn_num += 1
-
-            else:  # bankuj
+            else:
                 game["scores"][player.id] += turn_points
-                await ctx.send(f"💰 {player.mention} bankuje **{turn_points}** pkt!")
+                await ctx.send(f"Bankujesz **{turn_points}** pkt!")
                 return
 
     async def bot_turn(self, ctx, game):
+        if ctx.channel.id not in self.games:
+            return
+
         turn_points = 0
         remaining_dice = 6
-        for _ in range(6):
-            dice = [random.randint(1, 6) for _ in range(remaining_dice)]
-            if not self.has_scoring_combo(dice):
-                await ctx.send("🤖 Bot farklował!")
+        turn_num = 1
+
+        for _ in range(5):
+            if ctx.channel.id not in self.games:
                 return
 
-            # bot wybiera tylko punktujące (żeby nie był głupi)
-            scoring = self.get_scoring_nums(dice)
+            dice = [random.randint(1, 6) for _ in range(remaining_dice)]
+            if not self.has_scoring_combo(dice):
+                await ctx.send("🤖 Bot farklował! 😞")
+                return
+
+            # Bot wybiera tylko punktujące
+            scoring_nums = set()
             counts = Counter(dice)
-            kept = [num for num in scoring for _ in range(counts[num])]
+            for num, c in counts.items():
+                if c >= 3 or num in (1, 5):
+                    scoring_nums.add(num)
+
+            kept = []
+            for num in scoring_nums:
+                if random.random() < 0.8:
+                    kept.extend([num] * counts[num])
+
             points, _ = self.calculate_points(kept)
+            if points == 0:
+                await ctx.send("🤖 Bot farklował! 😞")
+                return
+
             turn_points += points
             remaining_dice -= len(kept)
 
             dice_str = " ".join(f"**{d}**" for d in sorted(dice))
-            await ctx.send(embed=discord.Embed(title="🤖 Bot rzuca", description=f"Kostki: {dice_str}\n+{points} → razem: **{turn_points}**", color=0x5865f2))
-            await asyncio.sleep(1.8)
+            await ctx.send(embed=discord.Embed(
+                title=f"🤖 Bot – rzut {turn_num}",
+                description=f"Kostki: {dice_str}\n+**{points}** pkt → razem: **{turn_points}**",
+                color=0x5865f2
+            ))
+
+            await asyncio.sleep(random.uniform(1.0, 2.5))
 
             if remaining_dice == 0:
                 remaining_dice = 6
 
-            if turn_points >= 600 or (turn_points >= 350 and random.random() < 0.7) or remaining_dice <= 2:
+            bank_chance = 0.3 if turn_points < 300 else 0.6 if turn_points < 600 else 0.9
+            if random.random() < bank_chance or remaining_dice <= 2:
                 game["scores"]["bot"] += turn_points
-                await ctx.send(f"🤖 Bot bankuje **{turn_points}** pkt!")
+                await ctx.send(f"🤖 Bankuje **{turn_points}** pkt!")
                 return
+
+            turn_num += 1
 
         await ctx.send("🤖 Bot za bardzo zaryzykował i farklował!")
 
     async def show_game_state(self, ctx, game):
+        if ctx.channel.id not in self.games:
+            return
+
         p1 = game["player1"].display_name
         p2 = "Bot" if game["mode"] == "vs_bot" else game["player2"].display_name
         s1 = game["scores"].get(game["player1"].id, 0)
         s2 = game["scores"].get("bot" if game["mode"] == "vs_bot" else game["player2"].id, 0)
-        current = "Bot" if game["current_turn"] is None else game["current_turn"].display_name
+        current_name = "Bot" if game["current_turn"] is None else game["current_turn"].display_name
 
         embed = discord.Embed(title=f"Farkle • Cel: {game['target']} pkt", color=0x2b2d31)
         embed.add_field(name=p1, value=f"**{s1}** pkt", inline=True)
         embed.add_field(name=p2, value=f"**{s2}** pkt", inline=True)
-        embed.add_field(name="Tura", value=current, inline=False)
+        embed.add_field(name="Aktualna tura", value=current_name, inline=False)
         await ctx.send(embed=embed)
 
     @commands.command(aliases=['stop', 'koniec'])
@@ -260,18 +358,18 @@ class Farkle(commands.Cog):
             del self.games[ctx.channel.id]
             await ctx.send("Gra przerwana.")
         else:
-            await ctx.send("Nie ma aktywnej gry.")
+            await ctx.send("Nie ma żadnej gry na tym kanale.")
 
     @staticmethod
     def has_scoring_combo(dice):
-        if not dice:
+        if len(dice) == 0:
             return False
-        c = Counter(dice)
+        counts = Counter(dice)
         if len(dice) == 6 and sorted(dice) == [1,2,3,4,5,6]:
             return True
-        if any(v >= 3 for v in c.values()):
+        if any(c >= 3 for c in counts.values()):
             return True
-        return c[1] > 0 or c[5] > 0
+        return counts[1] > 0 or counts[5] > 0
 
     @staticmethod
     def calculate_points(dice):
@@ -279,23 +377,26 @@ class Farkle(commands.Cog):
             return 0, False
         if len(dice) == 6 and sorted(dice) == [1,2,3,4,5,6]:
             return 1500, True
-        c = Counter(dice)
+        counts = Counter(dice)
         points = 0
-        for num, count in c.items():
-            points += (count // 3) * (1000 if num == 1 else num * 100)
-        remaining = {num: count % 3 for num, count in c.items()}
-        points += remaining.get(1, 0) * 100 + remaining.get(5, 0) * 50
+        for num, count in counts.items():
+            triples = count // 3
+            if triples > 0:
+                points += triples * (1000 if num == 1 else num * 100)
+        remaining = {num: count % 3 for num, count in counts.items()}
+        points += remaining.get(1, 0) * 100
+        points += remaining.get(5, 0) * 50
         return points, points > 0
 
     @staticmethod
     def get_scoring_nums(dice):
-        # używane tylko przez bota – gracz widzi wszystko
-        c = Counter(dice)
-        s = set()
-        for num, count in c.items():
-            if count >= 3 or num in (1, 5):
-                s.add(num)
-        return s
+        # używane tylko przez bota – gracz widzi WSZYSTKO
+        counts = Counter(dice)
+        scoring = set()
+        for num, c in counts.items():
+            if c >= 3 or num in (1, 5):
+                scoring.add(num)
+        return scoring
 
 async def setup(bot):
     await bot.add_cog(Farkle(bot))
