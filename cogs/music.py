@@ -31,7 +31,7 @@ class Music(commands.Cog):
         self.queue = {}
         self.history = {}
 
-  async def play_next(self, ctx):
+async def play_next(self, ctx):
         """Odtwarza następną piosenkę z kolejki"""
         vc = ctx.guild.voice_client
         if not vc or not vc.is_connected():
