@@ -1,9 +1,9 @@
-# cogs/music.py – TESTOWA WERSJA BEZ KOLEJKI, TYLKO JEDNA PIOSENKA
+# cogs/music.py – WERSJA Z PYTUBE (jedna piosenka naraz, bez kolejki)
 import discord
 from discord.ext import commands
 from pytube import YouTube
 import asyncio
-import traceback  # do lepszych logów błędów
+import traceback
 
 from config import FFMPEG_OPTIONS
 
@@ -19,13 +19,13 @@ class YTDLSource(discord.PCMVolumeTransformer):
         loop = loop or asyncio.get_event_loop()
         try:
             yt = await loop.run_in_executor(None, lambda: YouTube(url))
-            stream = yt.streams.filter(only_audio=True).first()
+            stream = yt.streams.filter(only_audio=True).order_by('abr').desc().first()
             if not stream:
                 raise ValueError("Nie znaleziono strumienia audio")
-            print(f"[MUSIC] Pobrano stream: {stream.url}")
+            print(f"[MUSIC] Pobrano stream: {stream.url[:100]}...")
             return cls(discord.FFmpegPCMAudio(stream.url, **FFMPEG_OPTIONS), data={'title': yt.title, 'url': stream.url}, volume=0.3)
         except Exception as e:
-            print(f"[MUSIC] Błąd w pytube.from_url: {str(e)}")
+            print(f"[MUSIC] Błąd pytube.from_url: {str(e)}")
             raise e
 
 class Music(commands.Cog):
@@ -53,9 +53,9 @@ class Music(commands.Cog):
             await ctx.send("Nie jestem na żadnym kanale!")
 
     @commands.command()
-    async def graj(self, ctx, *, query):
-        """Gra jedną piosenkę z YouTube"""
-        print(f"[MUSIC] Komenda graj uruchomiona: {query}")
+    async def graj(self, ctx, *, url):
+        """Gra jedną piosenkę – podaj bezpośredni link YouTube!"""
+        print(f"[MUSIC] Komenda graj: {url}")
         if not ctx.author.voice:
             await ctx.send("Musisz być na kanale głosowym!")
             return
@@ -64,26 +64,32 @@ class Music(commands.Cog):
 
         if not vc:
             await ctx.invoke(self.bot.get_command('dołącz'))
-            await asyncio.sleep(2)  # więcej czasu na połączenie
+            await asyncio.sleep(2)
             vc = ctx.guild.voice_client
             if not vc:
-                await ctx.send("Nie udało się dołączyć do kanału – spróbuj ponownie.")
+                await ctx.send("Nie udało się dołączyć do kanału.")
                 return
 
-        # Zatrzymujemy poprzedni utwór jeśli gra
         if vc.is_playing() or vc.is_paused():
             vc.stop()
             await ctx.send("Zatrzymałem poprzedni utwór – puszczam nowy 🎶")
 
+        if not url.startswith(("https://www.youtube.com/", "https://youtu.be/")):
+            await ctx.send(
+                "❌ Podaj **bezpośredni link** do filmu YouTube!\n"
+                "Przykład:\n"
+                "`8graj https://www.youtube.com/watch?v=dQw4w9WgXcQ`"
+            )
+            return
+
         try:
             async with ctx.typing():
-                print("[MUSIC] Szukam i pobieram utwór...")
-                player = await YTDLSource.from_url(query, loop=self.bot.loop)
-                print("[MUSIC] Utwór pobrany, puszczam...")
+                print("[MUSIC] Pobieram utwór...")
+                player = await YTDLSource.from_url(url, loop=self.bot.loop)
+                print("[MUSIC] Utwór pobrany")
         except Exception as e:
-            error_msg = f"Błąd pobierania utworu: {str(e)}\nSprawdź konsolę lub link."
-            await ctx.send(error_msg)
-            print(f"[MUSIC] Pełny błąd: {traceback.format_exc()}")
+            await ctx.send(f"Błąd pobierania: {str(e)}\nSpróbuj inny link.")
+            print(f"[MUSIC] Błąd pobierania: {traceback.format_exc()}")
             return
 
         try:
@@ -102,6 +108,24 @@ class Music(commands.Cog):
             return
         vc.stop()
         await ctx.send("⏭ Przeskoczono!")
+
+    @commands.command()
+    async def pauza(self, ctx):
+        vc = ctx.guild.voice_client
+        if vc and vc.is_playing():
+            vc.pause()
+            await ctx.send("Pauza ⏸")
+        else:
+            await ctx.send("Nic nie odtwarzam lub już w pauzie!")
+
+    @commands.command()
+    async def wznów(self, ctx):
+        vc = ctx.guild.voice_client
+        if vc and vc.is_paused():
+            vc.resume()
+            await ctx.send("Wznawiam ▶")
+        else:
+            await ctx.send("Nie jestem w pauzie!")
 
     @commands.command()
     async def zakończ(self, ctx):
