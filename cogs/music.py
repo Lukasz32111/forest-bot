@@ -34,21 +34,24 @@ class Music(commands.Cog):
     async def play_next(self, ctx):
         vc = ctx.guild.voice_client
         if not vc or not vc.is_connected():
+            print("[MUSIC] Voice client nie jest podłączony lub nie jest połączony")
             return
 
         if ctx.guild.id not in self.queue or not self.queue[ctx.guild.id]:
+            print("[MUSIC] Kolejka pusta – koniec")
             await ctx.send("Koniec kolejki! 🎶")
             return
 
         # Bierzemy i USUWAMY pierwszą piosenkę z kolejki
         next_song = self.queue[ctx.guild.id].popleft()
+        print(f"[MUSIC] Puszczam: {next_song['title']} | URL: {next_song['url']}")
 
         try:
             player = await YTDLSource.from_url(next_song['url'], loop=self.bot.loop)
             vc.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next_after(ctx), self.bot.loop))
             await ctx.send(f'🎶 Teraz gra: **{next_song["title"]}**')
         except Exception as e:
-            print(f"Błąd przy odtwarzaniu: {e}")
+            print(f"[MUSIC] Błąd przy odtwarzaniu: {e}")
             await self.play_next(ctx)  # kontynuuj z następną jeśli błąd
 
     async def play_next_after(self, ctx):
@@ -111,6 +114,7 @@ class Music(commands.Cog):
 
         # Jeśli nic nie gra → startujemy natychmiast
         if not vc.is_playing() and not vc.is_paused():
+            print("[MUSIC] Startuję odtwarzanie od razu")
             await self.play_next(ctx)
         else:
             position = len(self.queue[ctx.guild.id])
