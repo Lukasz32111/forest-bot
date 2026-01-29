@@ -78,7 +78,7 @@ class Music(commands.Cog):
         else:
             await ctx.send("Nie jestem na żadnym kanale!")
 
-     @commands.command()
+    @commands.command()
     async def graj(self, ctx, *, query):
         """Gra piosenkę z YouTube / link / wyszukiwanie"""
         if not ctx.author.voice:
