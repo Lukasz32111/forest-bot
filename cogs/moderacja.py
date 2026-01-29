@@ -135,23 +135,23 @@ async def czyść(self, ctx, limit: str = "50", member: discord.Member = None):
         return await ctx.send("Możesz usunąć od 1 do 1000 wiadomości naraz.")
 
     def check(msg):
-        # Jeśli podano osobę → usuwamy tylko jej wiadomości
+        # Jeśli podano osobę → usuwamy TYLKO jej wiadomości
         if member:
             return msg.author == member
-        # Jeśli nie podano → usuwamy wszystkie oprócz komendy
+        # Jeśli nie podano → usuwamy WSZYSTKO oprócz komendy
         return msg.id != ctx.message.id
 
     try:
         deleted = await ctx.channel.purge(limit=limit_int + 1, check=check, bulk=True)
         
-        # Liczymy tylko te, które faktycznie usunęliśmy od danej osoby (lub wszystkie jeśli nie podano)
-        if member:
-            deleted_count = len(deleted) - 1 if ctx.message in deleted else len(deleted)  # -1 jeśli komenda została usunięta
-        else:
-            deleted_count = len(deleted) - 1  # zawsze odejmujemy komendę
+        # Liczymy usunięte wiadomości (bez komendy, jeśli została usunięta)
+        deleted_count = len([m for m in deleted if m.id != ctx.message.id])
 
-        if deleted_count <= 0:
-            msg = await ctx.send("Nie znaleziono wiadomości do usunięcia.")
+        if deleted_count == 0:
+            if member:
+                msg = await ctx.send(f"Nie znaleziono wiadomości od {member.mention} w ostatnich {limit_int} wiadomościach.")
+            else:
+                msg = await ctx.send("Nie znaleziono wiadomości do usunięcia.")
         else:
             if member:
                 msg = await ctx.send(f"Usunięto **{deleted_count}** wiadomości od {member.mention}.")
@@ -159,7 +159,10 @@ async def czyść(self, ctx, limit: str = "50", member: discord.Member = None):
                 msg = await ctx.send(f"Usunięto **{deleted_count}** wiadomości.")
         
         await asyncio.sleep(3)
-        await msg.delete()
+        try:
+            await msg.delete()
+        except:
+            pass  # jeśli już usunięta – nie crashujemy
 
     except discord.Forbidden:
         await ctx.send("Nie mam uprawnień do usuwania wiadomości w tym kanale.")
