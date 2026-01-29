@@ -1,4 +1,4 @@
-# cogs/music.py – WERSJA Z PYTUBE (jedna piosenka naraz, bez kolejki)
+# cogs/music.py – WERSJA Z PYTUBE + TYLKO BEZPOŚREDNI LINK
 import discord
 from discord.ext import commands
 from pytube import YouTube
@@ -18,14 +18,15 @@ class YTDLSource(discord.PCMVolumeTransformer):
     async def from_url(cls, url, *, loop=None):
         loop = loop or asyncio.get_event_loop()
         try:
+            print(f"[MUSIC] Pobieram link: {url}")
             yt = await loop.run_in_executor(None, lambda: YouTube(url))
             stream = yt.streams.filter(only_audio=True).order_by('abr').desc().first()
             if not stream:
-                raise ValueError("Nie znaleziono strumienia audio")
-            print(f"[MUSIC] Pobrano stream: {stream.url[:100]}...")
+                raise ValueError("Brak strumienia audio")
+            print(f"[MUSIC] Stream URL: {stream.url[:100]}...")
             return cls(discord.FFmpegPCMAudio(stream.url, **FFMPEG_OPTIONS), data={'title': yt.title, 'url': stream.url}, volume=0.3)
         except Exception as e:
-            print(f"[MUSIC] Błąd pytube.from_url: {str(e)}")
+            print(f"[MUSIC] Błąd pytube: {str(e)}")
             raise e
 
 class Music(commands.Cog):
@@ -54,8 +55,8 @@ class Music(commands.Cog):
 
     @commands.command()
     async def graj(self, ctx, *, url):
-        """Gra jedną piosenkę – podaj bezpośredni link YouTube!"""
-        print(f"[MUSIC] Komenda graj: {url}")
+        """Gra piosenkę – podaj **bezpośredni link** YouTube!"""
+        print(f"[MUSIC] Komenda graj uruchomiona z: {url}")
         if not ctx.author.voice:
             await ctx.send("Musisz być na kanale głosowym!")
             return
@@ -74,11 +75,13 @@ class Music(commands.Cog):
             vc.stop()
             await ctx.send("Zatrzymałem poprzedni utwór – puszczam nowy 🎶")
 
-        if not url.startswith(("https://www.youtube.com/", "https://youtu.be/")):
+        # Wymagamy bezpośredniego linku YouTube
+        if not (url.startswith("https://www.youtube.com/") or url.startswith("https://youtu.be/")):
             await ctx.send(
-                "❌ Podaj **bezpośredni link** do filmu YouTube!\n"
+                "❌ Podaj **bezpośredni link** do filmu YouTube!\n\n"
                 "Przykład:\n"
-                "`8graj https://www.youtube.com/watch?v=dQw4w9WgXcQ`"
+                "`8graj https://www.youtube.com/watch?v=dQw4w9WgXcQ`\n\n"
+                "Wyszukiwanie tekstowe (np. 'Hymn Polski') nie działa – YouTube blokuje boty."
             )
             return
 
@@ -89,7 +92,7 @@ class Music(commands.Cog):
                 print("[MUSIC] Utwór pobrany")
         except Exception as e:
             await ctx.send(f"Błąd pobierania: {str(e)}\nSpróbuj inny link.")
-            print(f"[MUSIC] Błąd pobierania: {traceback.format_exc()}")
+            print(f"[MUSIC] Pełny błąd pobierania:\n{traceback.format_exc()}")
             return
 
         try:
@@ -98,7 +101,7 @@ class Music(commands.Cog):
             print("[MUSIC] vc.play wywołane – powinno być słychać")
         except Exception as e:
             await ctx.send(f"Błąd odtwarzania: {str(e)}")
-            print(f"[MUSIC] Błąd play: {traceback.format_exc()}")
+            print(f"[MUSIC] Pełny błąd play:\n{traceback.format_exc()}")
 
     @commands.command()
     async def skip(self, ctx):
