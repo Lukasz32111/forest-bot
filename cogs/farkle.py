@@ -64,15 +64,15 @@ class Farkle(commands.Cog):
 
                 starter = random.choice([player1, opponent])
                 game = {
-                    "mode": "pvp",
-                    "player1": player1,
-                    "player2": opponent,
-                    "current_turn": starter,
-                    "scores": {player1.id: 0, opponent.id: 0},
-                    "target": None,
-                    "channel": ctx.channel,
-                    "state": "choosing_target"
-                }
+    "mode": "vs_bot",
+    "player1": player1,
+    "player2": None,
+    "current_turn": player1,         
+    "scores": {player1.id: 0, "bot": 0},
+    "target": None,
+    "channel": ctx.channel,
+    "state": "choosing_target"
+}
                 self.games[channel_id] = game
                 await ctx.send(f"Pierwszy rzuca: **{starter.mention}**!")
                 await self.choose_target(ctx, game)
@@ -127,40 +127,89 @@ class Farkle(commands.Cog):
                 await self.play_game(ctx, game)
                 return
 
-    async def play_game(self, ctx, game):
-        while ctx.channel.id in self.games:
-            current = game["current_turn"]
-            await self.show_game_state(ctx, game)
-            if game["mode"] == "vs_bot" and current is None:  # bot turn
-                await self.bot_turn(ctx, game)
-            else:
+async def play_game(self, ctx, game):
+    # Najpierw pokaż stan początkowy
+    await self.show_game_state(ctx, game)
+
+    while ctx.channel.id in self.games:
+        current = game["current_turn"]
+
+        # Określamy, czyja tura
+        if game["mode"] == "vs_bot":
+            if current == game["player1"]:
                 await self.player_turn(ctx, game, current)
+            else:
+                # bot tura (current_turn == None lub specjalna wartość)
+                await self.bot_turn(ctx, game)
+        else:
+            # PvP – zawsze gracz
+            await self.player_turn(ctx, game, current)
 
-            if ctx.channel.id not in self.games:
-                break
+        if ctx.channel.id not in self.games:
+            break
 
-            # sprawdzamy zwycięzcę
-            p1_score = game["scores"].get(game["player1"].id, 0)
-            p2_score = game["scores"].get("bot" if game["mode"] == "vs_bot" else game["player2"].id, 0)
+        # Sprawdź wygraną PO turze
+        p1_score = game["scores"].get(game["player1"].id, 0)
+        if game["mode"] == "vs_bot":
+            p2_score = game["scores"].get("bot", 0)
+            p2_name = "Bot"
+        else:
+            p2_score = game["scores"].get(game["player2"].id, 0)
+            p2_name = game["player2"].display_name
 
-            if p1_score >= game["target"] or p2_score >= game["target"]:
-                winner = game["player1"] if p1_score >= game["target"] else ("Bot" if game["mode"] == "vs_bot" else game["player2"])
-                embed = discord.Embed(
-                    title="🏆 KONIEC GRY!",
-                    description=f"**Wygrywa {winner if isinstance(winner, str) else winner.mention}!**\n\n"
-                                f"{game['player1'].display_name}: **{p1_score}** pkt\n"
-                                f"{'Bot' if game['mode']=='vs_bot' else game['player2'].display_name}: **{p2_score}** pkt",
-                    color=0xffd700
-                )
-                await ctx.send(embed=embed)
-                self.games.pop(ctx.channel.id, None)
-                return
-
-            # następna tura
+        if p1_score >= game["target"]:
+            winner = game["player1"].mention
+            loser_score = p2_score
+            loser_name = p2_name
+        elif p2_score >= game["target"]:
+            winner = p2_name if game["mode"] == "vs_bot" else game["player2"].mention
+            loser_score = p1_score
+            loser_name = game["player1"].display_name
+        else:
+            # przełącz turę
             if game["mode"] == "vs_bot":
                 game["current_turn"] = None if current == game["player1"] else game["player1"]
             else:
                 game["current_turn"] = game["player2"] if current == game["player1"] else game["player1"]
+            await self.show_game_state(ctx, game)
+            continue
+
+        # Koniec gry
+        embed = discord.Embed(
+            title="🏆 KONIEC GRY!",
+            description=f"**Wygrywa {winner}!**\n\n"
+                        f"{game['player1'].display_name}: **{p1_score}** pkt\n"
+                        f"{loser_name}: **{loser_score}** pkt",
+            color=0xffd700
+        )
+        await ctx.send(embed=embed)
+        self.games.pop(ctx.channel.id, None)
+        return
+
+async def show_game_state(self, ctx, game):
+    if ctx.channel.id not in self.games:
+        return
+
+    p1_name = game["player1"].display_name
+    p1_score = game["scores"].get(game["player1"].id, 0)
+
+    if game["mode"] == "vs_bot":
+        p2_name = "Bot"
+        p2_score = game["scores"].get("bot", 0)
+        current_display = "Bot" if game["current_turn"] is None else game["current_turn"].display_name
+    else:
+        p2_name = game["player2"].display_name
+        p2_score = game["scores"].get(game["player2"].id, 0)
+        current_display = game["current_turn"].display_name
+
+    embed = discord.Embed(
+        title=f"Farkle • Cel: {game['target']} pkt",
+        color=0x2b2d31
+    )
+    embed.add_field(name=p1_name, value=f"**{p1_score}** pkt", inline=True)
+    embed.add_field(name=p2_name, value=f"**{p2_score}** pkt", inline=True)
+    embed.add_field(name="Aktualna tura", value=current_display, inline=False)
+    await ctx.send(embed=embed)
 
 async def player_turn(self, ctx, game, player):
     if ctx.channel.id not in self.games:
