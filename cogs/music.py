@@ -8,7 +8,6 @@ from collections import deque
 
 from config import YTDL_FORMAT_OPTIONS, FFMPEG_OPTIONS, MAX_HISTORY
 
-# Używamy YT-DLP z config – nie definiujemy ponownie!
 ytdl = yt_dlp.YoutubeDL(YTDL_FORMAT_OPTIONS)
 
 class YTDLSource(discord.PCMVolumeTransformer):
@@ -110,7 +109,7 @@ class Music(commands.Cog):
         # Dodajemy do kolejki
         self.queue[ctx.guild.id].append({"title": player.title, "url": query})
 
-        # Jeśli nic nie gra i nie jest w pauzie → startujemy natychmiast
+        # Jeśli nic nie gra → startujemy natychmiast
         if not vc.is_playing() and not vc.is_paused():
             await self.play_next(ctx)
         else:
