@@ -6,25 +6,27 @@ import random
 class Meme(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-        # Lista polskich subredditów – można łatwo rozbudowywać
+        # Najlepsze aktywne polskie subreddity z memami (2025/2026)
         self.polish_subreddits = [
-            "Polska_jest_najlepsza",
-            "poland",
+            "Polska_wpz",             # obecnie najwięcej memów
             "Polska",
-            "polmemes",              # jeśli istnieje / odradza się
-            "PolskaMemes",           # alternatywna nazwa
-            "polandmemes",           # angielsko-polska mieszanka
+            "Polska_jest_najlepsza",
+            "PolskaMemes",
+            "polandmemes",
+            "PolskaDankMemes",
+            "PolskaWpzMemes",
+            "poland",
+            "polmemes",               # czasem wraca do życia
         ]
 
     @commands.command(aliases=["mem", "losmeme", "śmieszne"])
     async def meme(self, ctx):
-        """Losowy mem (głównie anglojęzyczne)   8meme"""
+        """Losowy mem (głównie anglojęzyczne) – 8meme"""
         await self._send_random_meme(ctx, subreddit=None)
 
     @commands.command(name="polmeme", aliases=["memepl", "polskiememy", "mempl", "plmeme"])
     async def polmeme(self, ctx):
-        """Losowy polski mem (z kilku subredditów)   8polmeme / 8memepl"""
+        """Losowy **polski** mem – naprawdę po polsku – 8polmeme"""
         subreddit = random.choice(self.polish_subreddits)
         await self._send_random_meme(ctx, subreddit=subreddit)
 
@@ -32,48 +34,48 @@ class Meme(commands.Cog):
         base_url = "https://meme-api.com/gimme"
         url = f"{base_url}/{subreddit}" if subreddit else base_url
 
-        max_retries = 4  # ile razy próbujemy innego subreddita
+        max_retries = 6
         for attempt in range(max_retries):
-            current_sub = subreddit if subreddit else "losowy"
+            current_sub = subreddit if subreddit else "losowy (anglo)"
             if subreddit and attempt > 0:
                 current_sub = random.choice(self.polish_subreddits)
                 url = f"{base_url}/{current_sub}"
 
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(url, timeout=10) as resp:
+                    async with session.get(url, timeout=12) as resp:
                         if resp.status != 200:
-                            print(f"Błąd {resp.status} dla r/{current_sub}")
-                            continue  # próbujemy następny
+                            continue
 
                         data = await resp.json()
 
-                        if "url" not in data or not data.get("url", "").startswith(("https://i.redd.it/", "https://preview.redd.it/")):
-                            print(f"Nieprawidłowy mem z r/{current_sub}")
-                            continue
+                        # Sprawdzamy, czy to naprawdę obrazek
+                        img_url = data.get("url", "")
+                        if not img_url or not img_url.lower().endswith((".jpg", ".jpeg", ".png", ".gif", ".webp")):
+                            continue  # pomijamy tekstowe posty, linki YT itp.
 
-                        title = data.get("title", "Bez tytułu :(")
-                        post_link = data.get("postLink", "https://reddit.com/r/" + current_sub)
+                        title = data.get("title", "Bez tytułu")
+                        post_link = data.get("postLink", f"https://reddit.com/r/{current_sub}")
                         sub = data.get("subreddit", current_sub)
 
                         embed = discord.Embed(
                             title=title,
                             url=post_link,
-                            color=0xe31e24  # czerwony dla polskich memów
+                            color=0xff4500  # pomarańczowy – polski vibe
                         )
-                        embed.set_image(url=data["url"])
-                        embed.set_footer(text=f"r/{sub} • Powered by meme-api.com • Próba {attempt+1}/{max_retries}")
+                        embed.set_image(url=img_url)
+                        embed.set_footer(text=f"r/{sub} • meme-api.com • Próba {attempt+1}/{max_retries}")
 
                         await ctx.send(embed=embed)
-                        return  # sukces → wychodzimy
+                        return  # sukces!
 
             except Exception as e:
-                print(f"Błąd podczas próby {attempt+1} (r/{current_sub}): {e}")
+                print(f"Błąd mema ({current_sub}, próba {attempt+1}): {e}")
 
-        # Jeśli wszystkie próby zawiodły
+        # Jeśli wszystko zawiodło
         await ctx.send(
-            "Serwis memów ma obecnie przerwę na polskich subredditach 😅\n"
-            "Spróbuj za chwilę lub użyj `8meme` na anglojęzyczne śmieszki."
+            "Cholera, dzisiaj polskie subreddity milczą 😭\n"
+            "Spróbuj za chwilę albo użyj `8meme` na anglojęzyczne memy."
         )
 
 async def setup(bot):
