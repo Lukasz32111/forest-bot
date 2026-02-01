@@ -7,10 +7,9 @@ from datetime import datetime
 import aiohttp
 import asyncio
 
-# Zmienne środowiskowe – dodaj w panelu hosta
-JSONBIN_ID = os.getenv(697f8cb343b1c97be95da3bd)
-JSONBIN_KEY = os.getenv($2a$10$28OLRCkFBrvrj2q.WKo7JeHUGKrp0ISyujHzguxBM82RP8r3eGzZ6)
-JSONBIN_URL = f"https://api.jsonbin.io/v3/b/{JSONBIN_ID}"
+JSONBIN_ID = os.getenv("JSONBIN_ID")
+JSONBIN_KEY = os.getenv("JSONBIN_KEY")
+JSONBIN_URL = f"https://api.jsonbin.io/v3/b/{JSONBIN_ID}" if JSONBIN_ID else None
 
 class Warn(commands.Cog):
     def __init__(self, bot):
@@ -19,7 +18,7 @@ class Warn(commands.Cog):
         asyncio.create_task(self.load_warns_from_jsonbin())
 
     async def load_warns_from_jsonbin(self):
-        if not JSONBIN_ID or not JSONBIN_KEY:
+        if not JSONBIN_ID or not JSONBIN_KEY or not JSONBIN_URL:
             print("[WARN] Brak JSONBIN_ID lub JSONBIN_KEY w zmiennych środowiskowych – używam pamięci")
             return
 
@@ -29,7 +28,7 @@ class Warn(commands.Cog):
                 async with session.get(JSONBIN_URL, headers=headers) as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        self.warns = data['record']
+                        self.warns = data.get('record', {})
                         print(f"[WARN] Załadowano {len(self.warns)} użytkowników z JSONBin")
                     else:
                         print(f"[WARN] Błąd ładowania JSONBin: {resp.status} – {await resp.text()}")
@@ -37,7 +36,7 @@ class Warn(commands.Cog):
                 print(f"[WARN] Błąd połączenia z JSONBin: {e}")
 
     async def save_warns_to_jsonbin(self):
-        if not JSONBIN_ID or not JSONBIN_KEY:
+        if not JSONBIN_ID or not JSONBIN_KEY or not JSONBIN_URL:
             print("[WARN] Brak JSONBIN – nie zapisuję")
             return
 
