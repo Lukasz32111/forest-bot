@@ -26,7 +26,7 @@ class Warn(commands.Cog):
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     async def ostrzeżenie(self, ctx, member: discord.Member, *, reason: str = "Brak powodu"):
-        """Daje ostrzeżenie użytkownikowi   8ostrzeżenie @osoba [powód]"""
+        """Daje ostrzeżenie użytkownikowi 8ostrzeżenie @osoba [powód]"""
         if member == ctx.author:
             return await ctx.send("Nie możesz dać ostrzeżenia samemu sobie.")
         if member.top_role >= ctx.me.top_role:
@@ -45,22 +45,23 @@ class Warn(commands.Cog):
         self.save_warns()
 
         count = len(self.warns[user_id])
-await ctx.send(f"{member.mention} otrzymał **{count}. ostrzeżenie**...")
 
-if count >= 3:
-    # Uruchamiamy osąd
-    osad_cog = self.bot.get_cog("Osad")
-    if osad_cog:
-        await osad_cog.rozpocznij_osad(ctx.guild, member, reason)
-    else:
-        await ctx.send("⚠️ System osądu nie jest załadowany!")
+        # Ta linia i cały blok poniżej muszą być wcięte na poziomie funkcji (4 spacje)
+        await ctx.send(f"{member.mention} otrzymał **{count}. ostrzeżenie**.\nPowód: {reason}\nWydane przez: {ctx.author.mention}")
+
+        if count >= 3:
+            # Uruchamiamy osąd
+            osad_cog = self.bot.get_cog("Osad")
+            if osad_cog:
+                await osad_cog.rozpocznij_osad(ctx.guild, member, reason)
+            else:
+                await ctx.send("⚠️ System osądu nie jest załadowany!")
 
     @commands.command(name="ostrzeżenia", aliases=["warny", "sprawdźostrzeżenia"])
     async def ostrzeżenia(self, ctx, member: discord.Member = None):
-        """Pokazuje listę ostrzeżeń użytkownika   8ostrzeżenia [@osoba]"""
+        """Pokazuje listę ostrzeżeń użytkownika 8ostrzeżenia [@osoba]"""
         if member is None:
             member = ctx.author
-
         user_id = str(member.id)
         if user_id not in self.warns or not self.warns[user_id]:
             return await ctx.send(f"{member.mention} nie ma żadnych ostrzeżeń.")
@@ -70,20 +71,18 @@ if count >= 3:
             description=f"Łącznie: **{len(self.warns[user_id])}** ostrzeżeń",
             color=0xffaa00
         )
-
         for i, warn in enumerate(self.warns[user_id], 1):
             embed.add_field(
                 name=f"Ostrzeżenie #{i}",
                 value=f"**Powód:** {warn['reason']}\n**Wydane przez:** {warn['moderator']}\n**Data:** {warn['date']}",
                 inline=False
             )
-
         await ctx.send(embed=embed)
 
     @commands.command(name="usuńostrzeżenie", aliases=["cofnijostrzeżenie", "unwarn"])
     @commands.has_permissions(manage_messages=True)
     async def usuńostrzeżenie(self, ctx, member: discord.Member, numer: int = None):
-        """Usuwa ostatnie ostrzeżenie lub konkretne po numerze   8usuńostrzeżenie @osoba [numer]"""
+        """Usuwa ostatnie ostrzeżenie lub konkretne po numerze 8usuńostrzeżenie @osoba [numer]"""
         user_id = str(member.id)
         if user_id not in self.warns or not self.warns[user_id]:
             return await ctx.send(f"{member.mention} nie ma ostrzeżeń do usunięcia.")
