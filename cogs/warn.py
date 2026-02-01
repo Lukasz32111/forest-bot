@@ -45,17 +45,7 @@ class Warn(commands.Cog):
         self.save_warns()
 
         count = len(self.warns[user_id])
-
-        # Ta linia i cały blok poniżej muszą być wcięte na poziomie funkcji (4 spacje)
         await ctx.send(f"{member.mention} otrzymał **{count}. ostrzeżenie**.\nPowód: {reason}\nWydane przez: {ctx.author.mention}")
-
-        if count >= 3:
-            # Uruchamiamy osąd
-            osad_cog = self.bot.get_cog("Osad")
-            if osad_cog:
-                await osad_cog.rozpocznij_osad(ctx.guild, member, reason)
-            else:
-                await ctx.send("⚠️ System osądu nie jest załadowany!")
 
     @commands.command(name="ostrzeżenia", aliases=["warny", "sprawdźostrzeżenia"])
     async def ostrzeżenia(self, ctx, member: discord.Member = None):
