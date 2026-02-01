@@ -14,7 +14,7 @@ class Osad(commands.Cog):
         kategoria_sady = discord.utils.get(guild.categories, name="Sądy") or await guild.create_category("Sądy")
         kategoria_archiwum = discord.utils.get(guild.categories, name="Archiwum Osądów") or await guild.create_category("Archiwum Osądów")
 
-        # Rola Skazaniec
+        # Rola Skazaniec – blokada pisania wszędzie poza sądem
         rola_skazaniec = discord.utils.get(guild.roles, name="Skazaniec")
         if not rola_skazaniec:
             rola_skazaniec = await guild.create_role(
@@ -26,7 +26,7 @@ class Osad(commands.Cog):
 
         await skazany.add_roles(rola_skazaniec)
 
-        # Blokada globalna pisania (oprócz sądu)
+        # Blokada globalna (oprócz sądu)
         for channel in guild.text_channels:
             if channel.category_id != kategoria_sady.id:
                 try:
@@ -122,7 +122,7 @@ class Osad(commands.Cog):
                 # Zamknięcie przez moderatora
                 if emoji_str == "❌" and user.guild_permissions.manage_messages:
                     await self.zakoncz_osad(guild, kanal, skazany, msg, user, votes)
-                    break
+                    break  # Wyjście z pętli po zamknięciu
 
                 # Głosowanie normalne
                 if emoji_str in votes:
@@ -138,7 +138,7 @@ class Osad(commands.Cog):
                         voters[emoji_str].add(user.id)
                         voted_users.add(user.id)
 
-                        # Aktualizacja embeda – opcje stałe
+                        # Aktualizacja embeda
                         total = sum(votes.values())
                         linie = []
                         for em in ["1️⃣", "2️⃣", "3️⃣"]:
@@ -162,7 +162,7 @@ class Osad(commands.Cog):
 
             except asyncio.TimeoutError:
                 await self.zakoncz_osad(guild, kanal, skazany, msg, None, votes)
-                break
+                break  # Wyjście po timeout
 
     async def zakoncz_osad(self, guild, kanal, skazany, msg, mod=None, votes=None):
         if votes is None:
@@ -210,6 +210,11 @@ class Osad(commands.Cog):
             await skazany.timeout(timedelta(days=28), reason=reason_kary)
         elif kara == 3:
             await skazany.ban(reason=reason_kary)
+
+        # Log do kanału "kary"
+        kanal_kary = guild.get_channel(1458853426707304540)
+        if kanal_kary:
+            await kanal_kary.send(embed=embed)
 
         # Usuwamy rolę po wyroku
         rola_skazaniec = discord.utils.get(guild.roles, name="Skazaniec")
