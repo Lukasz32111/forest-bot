@@ -5,41 +5,56 @@ import json
 import os
 from datetime import datetime
 
-WARN_FILE = "warns.json"  # plik z ostrzeżeniami – nie usuwaj go ręcznie!
+WARN_FILE = "warns.json"
 
 class Warn(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.warns = self.load_warns()
-        print("[WARN] Załadowano ostrzeżenia z pliku:", len(self.warns), "użytkowników")
+        print(f"[WARN] Załadowano {len(self.warns)} użytkowników z ostrzeżeniami z pliku {WARN_FILE}")
 
     def load_warns(self):
-        if os.path.exists(WARN_FILE):
+        if not os.path.exists(WARN_FILE):
+            print(f"[WARN] Plik {WARN_FILE} nie istnieje – tworzę pusty.")
             try:
-                with open(WARN_FILE, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    print("[WARN] Plik warns.json załadowany pomyślnie")
-                    return data
+                with open(WARN_FILE, 'w', encoding='utf-8') as f:
+                    json.dump({}, f)
+                print(f"[WARN] Utworzono pusty plik {WARN_FILE}")
             except Exception as e:
-                print(f"[WARN] Błąd ładowania warns.json: {e}. Tworzę pusty plik.")
-                return {}
-        else:
-            print("[WARN] Brak pliku warns.json – tworzę nowy.")
+                print(f"[WARN] Błąd tworzenia pliku {WARN_FILE}: {e}")
+            return {}
+
+        try:
+            with open(WARN_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                print(f"[WARN] Plik {WARN_FILE} załadowany pomyślnie")
+                return data
+        except json.JSONDecodeError:
+            print(f"[WARN] Plik {WARN_FILE} uszkodzony – tworzę nowy pusty.")
+            try:
+                with open(WARN_FILE, 'w', encoding='utf-8') as f:
+                    json.dump({}, f)
+            except Exception as e:
+                print(f"[WARN] Błąd tworzenia nowego pliku: {e}")
+            return {}
+        except Exception as e:
+            print(f"[WARN] Nieznany błąd ładowania {WARN_FILE}: {e}")
             return {}
 
     def save_warns(self):
         try:
             with open(WARN_FILE, 'w', encoding='utf-8') as f:
                 json.dump(self.warns, f, indent=4, ensure_ascii=False)
-            print("[WARN] Zapisano zmiany w warns.json")
+            print(f"[WARN] Zapisano zmiany w {WARN_FILE} ({len(self.warns)} użytkowników)")
+        except PermissionError:
+            print(f"[WARN] Brak uprawnień do zapisu pliku {WARN_FILE}! Sprawdź katalog i prawa dostępu.")
         except Exception as e:
-            print(f"[WARN] Błąd zapisu warns.json: {e}")
+            print(f"[WARN] Błąd zapisu {WARN_FILE}: {e}")
 
     @commands.command(name="ostrzeżenie", aliases=["ostrzeg", "warn"])
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     async def ostrzeżenie(self, ctx, member: discord.Member, *, reason: str = "Brak powodu"):
-        """Daje ostrzeżenie użytkownikowi 8ostrzeżenie @osoba [powód]"""
         if member == ctx.author:
             return await ctx.send("Nie możesz dać ostrzeżenia samemu sobie.")
         if member.top_role >= ctx.me.top_role:
@@ -60,12 +75,8 @@ class Warn(commands.Cog):
         count = len(self.warns[user_id])
         await ctx.send(f"{member.mention} otrzymał **{count}. ostrzeżenie**.\nPowód: {reason}\nWydane przez: {ctx.author.mention}")
 
-        # Log do konsoli – żebyś wiedział, że warn został zapisany
-        print(f"[WARN] Dodano ostrzeżenie #{count} dla {user_id} ({member}) od {ctx.author}: {reason}")
-
     @commands.command(name="ostrzeżenia", aliases=["warny", "sprawdźostrzeżenia"])
     async def ostrzeżenia(self, ctx, member: discord.Member = None):
-        """Pokazuje listę ostrzeżeń użytkownika 8ostrzeżenia [@osoba]"""
         if member is None:
             member = ctx.author
         user_id = str(member.id)
@@ -88,7 +99,6 @@ class Warn(commands.Cog):
     @commands.command(name="usuńostrzeżenie", aliases=["cofnijostrzeżenie", "unwarn"])
     @commands.has_permissions(manage_messages=True)
     async def usuńostrzeżenie(self, ctx, member: discord.Member, numer: int = None):
-        """Usuwa ostatnie ostrzeżenie lub konkretne po numerze 8usuńostrzeżenie @osoba [numer]"""
         user_id = str(member.id)
         if user_id not in self.warns or not self.warns[user_id]:
             return await ctx.send(f"{member.mention} nie ma ostrzeżeń do usunięcia.")
