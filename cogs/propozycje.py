@@ -13,7 +13,7 @@ class Propozycje(commands.Cog):
         if message.author.bot or message.channel.id != self.propozycje_kanal_id:
             return
 
-        # Usuwamy oryginalną wiadomość użytkownika
+        # Usuwamy oryginalną wiadomość (kanał zostaje czysty)
         try:
             await message.delete()
         except:
@@ -28,7 +28,7 @@ class Propozycje(commands.Cog):
             name=message.author.display_name,
             icon_url=message.author.avatar.url if message.author.avatar else None
         )
-        embed.set_footer(text="Głosuj: + popieram • – nie popieram • X nie mam zdania")
+        embed.set_footer(text="Głosuj reakcjami poniżej • 👍 = popieram • ❌ = nie mam zdania • możesz zmienić głos")
 
         try:
             msg = await message.channel.send(embed=embed)
@@ -36,15 +36,14 @@ class Propozycje(commands.Cog):
             print(f"Błąd wysyłania embeda: {e}")
             return
 
-        # Reakcje głosowania
+        # Dodajemy tylko dwie reakcje
         try:
-            await msg.add_reaction("👍")  # +
-            await msg.add_reaction("👎")  # –
-            await msg.add_reaction("❌")  # X
+            await msg.add_reaction("👍")  # popieram
+            await msg.add_reaction("❌")  # nie mam zdania
         except Exception as e:
             print(f"Błąd dodawania reakcji: {e}")
 
-        # Tworzenie wątku – bez 'type', tylko podstawowe parametry
+        # Tworzymy wątek do dyskusji
         thread_name = f"{message.author.name} – {message.content[:50]}{'...' if len(message.content) > 50 else ''}"
         try:
             thread = await msg.create_thread(
@@ -59,7 +58,44 @@ class Propozycje(commands.Cog):
             )
         except Exception as e:
             print(f"Błąd tworzenia wątku: {e}")
-            await msg.reply(f"Nie udało się stworzyć wątku dyskusyjnego: {e}\nSprawdź uprawnienia bota (Create Public Threads).")
+            await msg.reply(f"Nie udało się stworzyć wątku dyskusyjnego: {e}\nSprawdź uprawnienia bota.")
+
+    @commands.Cog.listener()
+    async def on_reaction_add(self, reaction: discord.Reaction, user: discord.User):
+        if user.bot:
+            return
+
+        if reaction.message.channel.id != self.propozycje_kanal_id:
+            return
+
+        msg = reaction.message
+        if not msg.embeds or not msg.embeds[0].title.startswith("OSĄD –"):
+            return  # tylko pod naszymi embedami
+
+        allowed_emojis = ["👍", "❌"]
+
+        if str(reaction.emoji) not in allowed_emojis:
+            await msg.remove_reaction(reaction.emoji, user)
+            return
+
+        # Sprawdzamy, czy użytkownik już głosował
+        for r in msg.reactions:
+            if str(r.emoji) in allowed_emojis and str(r.emoji) != str(reaction.emoji):
+                async for u in r.users():
+                    if u.id == user.id:
+                        await msg.remove_reaction(r.emoji, user)
+                        break
+
+    @commands.command(name="zamknij")
+    @commands.has_permissions(manage_messages=True)
+    async def zamknij(self, ctx):
+        """Zamyka bieżący wątek propozycji – tylko moderatorzy"""
+        if not isinstance(ctx.channel, discord.Thread):
+            return await ctx.send("Ta komenda działa tylko wewnątrz wątku.")
+
+        thread = ctx.channel
+        await thread.edit(archived=True, locked=True)
+        await thread.send("Wątek zamknięty przez moderatora – dyskusja zakończona.")
 
 async def setup(bot):
     await bot.add_cog(Propozycje(bot))
