@@ -5,22 +5,35 @@ import json
 import os
 from datetime import datetime
 
-WARN_FILE = "warns.json"  # plik z ostrzeżeniami
+WARN_FILE = "warns.json"  # plik z ostrzeżeniami – nie usuwaj go ręcznie!
 
 class Warn(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.warns = self.load_warns()
+        print("[WARN] Załadowano ostrzeżenia z pliku:", len(self.warns), "użytkowników")
 
     def load_warns(self):
         if os.path.exists(WARN_FILE):
-            with open(WARN_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        return {}
+            try:
+                with open(WARN_FILE, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    print("[WARN] Plik warns.json załadowany pomyślnie")
+                    return data
+            except Exception as e:
+                print(f"[WARN] Błąd ładowania warns.json: {e}. Tworzę pusty plik.")
+                return {}
+        else:
+            print("[WARN] Brak pliku warns.json – tworzę nowy.")
+            return {}
 
     def save_warns(self):
-        with open(WARN_FILE, 'w', encoding='utf-8') as f:
-            json.dump(self.warns, f, indent=4, ensure_ascii=False)
+        try:
+            with open(WARN_FILE, 'w', encoding='utf-8') as f:
+                json.dump(self.warns, f, indent=4, ensure_ascii=False)
+            print("[WARN] Zapisano zmiany w warns.json")
+        except Exception as e:
+            print(f"[WARN] Błąd zapisu warns.json: {e}")
 
     @commands.command(name="ostrzeżenie", aliases=["ostrzeg", "warn"])
     @commands.has_permissions(manage_messages=True)
@@ -46,6 +59,9 @@ class Warn(commands.Cog):
 
         count = len(self.warns[user_id])
         await ctx.send(f"{member.mention} otrzymał **{count}. ostrzeżenie**.\nPowód: {reason}\nWydane przez: {ctx.author.mention}")
+
+        # Log do konsoli – żebyś wiedział, że warn został zapisany
+        print(f"[WARN] Dodano ostrzeżenie #{count} dla {user_id} ({member}) od {ctx.author}: {reason}")
 
     @commands.command(name="ostrzeżenia", aliases=["warny", "sprawdźostrzeżenia"])
     async def ostrzeżenia(self, ctx, member: discord.Member = None):
