@@ -1,18 +1,56 @@
 # cogs/warn.py
 import discord
 from discord.ext import commands
+import json
+import os
 from datetime import datetime
-from replit import db
+
+WARN_FILE = "warns.json"
 
 class Warn(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.warns = db.get('warns', {})
-        print(f"[WARN] Załadowano {len(self.warns)} użytkowników z Replit DB")
+        self.warns = self.load_warns()
+        print(f"[WARN] Załadowano {len(self.warns)} użytkowników z ostrzeżeniami")
+
+    def load_warns(self):
+        if not os.path.exists(WARN_FILE):
+            print(f"[WARN] Plik {WARN_FILE} NIE ISTNIEJE – tworzę pusty.")
+            try:
+                with open(WARN_FILE, 'w', encoding='utf-8') as f:
+                    json.dump({}, f)
+                print(f"[WARN] Utworzono pusty plik {WARN_FILE}")
+            except Exception as e:
+                print(f"[WARN] BŁĄD TWORZENIA PLIKU {WARN_FILE}: {e}")
+                print(f"[WARN] Sprawdź uprawnienia zapisu w katalogu /app/")
+            return {}
+
+        try:
+            with open(WARN_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                print(f"[WARN] Plik {WARN_FILE} załadowany – {len(data)} użytkowników")
+                return data
+        except json.JSONDecodeError:
+            print(f"[WARN] Plik {WARN_FILE} USZKODZONY – tworzę nowy pusty.")
+            try:
+                with open(WARN_FILE, 'w', encoding='utf-8') as f:
+                    json.dump({}, f)
+            except Exception as e:
+                print(f"[WARN] BŁĄD TWORZENIA NOWEGO PLIKU: {e}")
+            return {}
+        except Exception as e:
+            print(f"[WARN] Błąd ładowania {WARN_FILE}: {e}")
+            return {}
 
     def save_warns(self):
-        db['warns'] = self.warns
-        print(f"[WARN] Zapisano {len(self.warns)} użytkowników w Replit DB")
+        try:
+            with open(WARN_FILE, 'w', encoding='utf-8') as f:
+                json.dump(self.warns, f, indent=4, ensure_ascii=False)
+            print(f"[WARN] Zapisano {len(self.warns)} użytkowników do {WARN_FILE}")
+        except PermissionError:
+            print(f"[WARN] BRAK UPRAWNIEŃ DO ZAPISU PLIKU {WARN_FILE}! Sprawdź katalog i prawa dostępu.")
+        except Exception as e:
+            print(f"[WARN] Błąd zapisu {WARN_FILE}: {e}")
 
     @commands.command(name="ostrzeżenie", aliases=["ostrzeg", "warn"])
     @commands.has_permissions(manage_messages=True)
