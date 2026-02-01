@@ -14,7 +14,7 @@ class Osad(commands.Cog):
         kategoria_sady = discord.utils.get(guild.categories, name="Sądy") or await guild.create_category("Sądy")
         kategoria_archiwum = discord.utils.get(guild.categories, name="Archiwum Osądów") or await guild.create_category("Archiwum Osądów")
 
-        # Rola Skazaniec – blokada pisania wszędzie poza sądem
+        # Rola Skazaniec
         rola_skazaniec = discord.utils.get(guild.roles, name="Skazaniec")
         if not rola_skazaniec:
             rola_skazaniec = await guild.create_role(
@@ -26,7 +26,7 @@ class Osad(commands.Cog):
 
         await skazany.add_roles(rola_skazaniec)
 
-        # Blokada globalna (oprócz sądu)
+        # Blokada globalna pisania (oprócz sądu)
         for channel in guild.text_channels:
             if channel.category_id != kategoria_sady.id:
                 try:
@@ -63,7 +63,7 @@ class Osad(commands.Cog):
         rola_zw = discord.utils.get(guild.roles, name="Zweryfikowany")
         ping = f"<@&{rola_zw.id}>" if rola_zw else ""
 
-        # Embed z ankietą – opcje stałe
+        # Embed z ankietą
         embed = discord.Embed(
             title=f"OSĄD – {skazany}",
             description=(
@@ -89,7 +89,7 @@ class Osad(commands.Cog):
             except Exception as e:
                 await kanal.send(f"Błąd reakcji {emoji}: {e}")
 
-        # Głosowanie na żywo
+        # Głosowanie
         votes = {"1️⃣": 0, "2️⃣": 0, "3️⃣": 0}
         voters = {"1️⃣": set(), "2️⃣": set(), "3️⃣": set()}
         voted_users = set()
@@ -105,7 +105,7 @@ class Osad(commands.Cog):
 
                 emoji_str = str(reaction.emoji)
 
-                # 👥 – kto głosował (tylko dla moderatorów)
+                # 👥 – kto głosował (tylko moderatorzy)
                 if emoji_str == "👥" and user.guild_permissions.manage_messages:
                     lista = []
                     for em, usr_set in voters.items():
@@ -119,10 +119,12 @@ class Osad(commands.Cog):
                     await msg.remove_reaction("👥", user)
                     continue
 
+                # Zamknięcie przez moderatora
                 if emoji_str == "❌" and user.guild_permissions.manage_messages:
                     await self.zakoncz_osad(guild, kanal, skazany, msg, user, votes)
                     break
 
+                # Głosowanie normalne
                 if emoji_str in votes:
                     if user.id not in voted_users:
                         # Usuwamy poprzedni głos
@@ -136,7 +138,7 @@ class Osad(commands.Cog):
                         voters[emoji_str].add(user.id)
                         voted_users.add(user.id)
 
-                        # Aktualizacja wyników
+                        # Aktualizacja embeda – opcje stałe
                         total = sum(votes.values())
                         linie = []
                         for em in ["1️⃣", "2️⃣", "3️⃣"]:
@@ -190,6 +192,16 @@ class Osad(commands.Cog):
         )
         await kanal.send(embed=embed)
 
+        # Wyrok na kanał ID 1458853426707304540
+        try:
+            kanal_kary = guild.get_channel(1458853426707304540)
+            if kanal_kary:
+                await kanal_kary.send(embed=embed)
+            else:
+                await kanal.send("Kanał kary (ID 1458853426707304540) nie znaleziony.")
+        except Exception as e:
+            await kanal.send(f"Błąd wysyłania wyroku: {e}")
+
         # Wykonanie kary
         reason_kary = "Społeczność tak zadecydowała"
         if kara == 1:
@@ -199,22 +211,12 @@ class Osad(commands.Cog):
         elif kara == 3:
             await skazany.ban(reason=reason_kary)
 
-        # Log do kanału "kary" (ID 1458853426707304540)
-        try:
-            kanal_kary = guild.get_channel(1458853426707304540)
-            if kanal_kary:
-                await kanal_kary.send(embed=embed)
-            else:
-                print("Kanał o ID 1458853426707304540 nie istnieje lub bot nie ma dostępu.")
-        except Exception as e:
-            print(f"Błąd wysyłania do kanału kary: {e}")
-
         # Usuwamy rolę po wyroku
         rola_skazaniec = discord.utils.get(guild.roles, name="Skazaniec")
         if rola_skazaniec:
             await skazany.remove_roles(rola_skazaniec)
 
-        # Archiwizacja – teraz na pewno
+        # Archiwizacja
         archiwum = discord.utils.get(guild.categories, name="Archiwum Osądów")
         if archiwum:
             try:
@@ -222,9 +224,9 @@ class Osad(commands.Cog):
                 await kanal.set_permissions(guild.default_role, send_messages=False, add_reactions=False)
                 await kanal.send("Kanał przeniesiony do archiwum – tylko do odczytu.")
             except Exception as e:
-                await kanal.send(f"Błąd przeniesienia do archiwum: {e}")
+                await kanal.send(f"Błąd archiwizacji: {e}")
         else:
-            await kanal.send("Brak kategorii Archiwum Osądów – kanał pozostaje w Sądy.")
+            await kanal.send("Brak kategorii archiwum – kanał zostaje.")
 
 async def setup(bot):
     await bot.add_cog(Osad(bot))
