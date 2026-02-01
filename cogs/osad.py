@@ -10,11 +10,9 @@ class Osad(commands.Cog):
 
     async def rozpocznij_osad(self, guild: discord.Guild, skazany: discord.Member, reason: str):
         """Uruchamia osąd po 3. warnie"""
-        # Kategorie
         kategoria_sady = discord.utils.get(guild.categories, name="Sądy") or await guild.create_category("Sądy")
         kategoria_archiwum = discord.utils.get(guild.categories, name="Archiwum Osądów") or await guild.create_category("Archiwum Osądów")
 
-        # Rola Skazaniec – blokada pisania wszędzie poza sądem
         rola_skazaniec = discord.utils.get(guild.roles, name="Skazaniec")
         if not rola_skazaniec:
             rola_skazaniec = await guild.create_role(
@@ -26,25 +24,16 @@ class Osad(commands.Cog):
 
         await skazany.add_roles(rola_skazaniec)
 
-        # Blokada globalna (oprócz sądu)
         for channel in guild.text_channels:
             if channel.category_id != kategoria_sady.id:
                 try:
-                    await channel.set_permissions(
-                        rola_skazaniec,
-                        send_messages=False,
-                        add_reactions=False,
-                        read_messages=False
-                    )
+                    await channel.set_permissions(rola_skazaniec, send_messages=False, add_reactions=False, read_messages=False)
                 except:
                     pass
 
-        # Kanał sądowy
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
-            rola_skazaniec: discord.PermissionOverwrite(
-                view_channel=True, send_messages=False, read_message_history=True, add_reactions=False
-            ),
+            rola_skazaniec: discord.PermissionOverwrite(view_channel=True, send_messages=False, read_message_history=True, add_reactions=False),
             guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, manage_channels=True),
         }
 
@@ -59,11 +48,9 @@ class Osad(commands.Cog):
             topic=f"Osąd: {skazany} | 3 ostrzeżenia | {reason}"
         )
 
-        # Ping tylko @Zweryfikowany
         rola_zw = discord.utils.get(guild.roles, name="Zweryfikowany")
         ping = f"<@&{rola_zw.id}>" if rola_zw else ""
 
-        # Embed z ankietą
         embed = discord.Embed(
             title=f"OSĄD – {skazany}",
             description=(
@@ -81,7 +68,6 @@ class Osad(commands.Cog):
 
         msg = await kanal.send(content=ping, embed=embed)
 
-        # Reakcje
         for emoji in ["1️⃣", "2️⃣", "3️⃣", "❌", "👥"]:
             try:
                 await msg.add_reaction(emoji)
@@ -89,7 +75,6 @@ class Osad(commands.Cog):
             except Exception as e:
                 await kanal.send(f"Błąd reakcji {emoji}: {e}")
 
-        # Głosowanie
         votes = {"1️⃣": 0, "2️⃣": 0, "3️⃣": 0}
         voters = {"1️⃣": set(), "2️⃣": set(), "3️⃣": set()}
         voted_users = set()
@@ -105,7 +90,6 @@ class Osad(commands.Cog):
 
                 emoji_str = str(reaction.emoji)
 
-                # 👥 – kto głosował (tylko moderatorzy)
                 if emoji_str == "👥" and user.guild_permissions.manage_messages:
                     lista = []
                     for em, usr_set in voters.items():
@@ -119,15 +103,12 @@ class Osad(commands.Cog):
                     await msg.remove_reaction("👥", user)
                     continue
 
-                # Zamknięcie przez moderatora
                 if emoji_str == "❌" and user.guild_permissions.manage_messages:
                     await self.zakoncz_osad(guild, kanal, skazany, msg, user, votes)
-                    break  # Wyjście z pętli po zamknięciu
+                    return  # Koniec pętli po zamknięciu
 
-                # Głosowanie normalne
                 if emoji_str in votes:
                     if user.id not in voted_users:
-                        # Usuwamy poprzedni głos
                         for em in votes:
                             if user.id in voters[em]:
                                 voters[em].remove(user.id)
@@ -138,7 +119,6 @@ class Osad(commands.Cog):
                         voters[emoji_str].add(user.id)
                         voted_users.add(user.id)
 
-                        # Aktualizacja embeda
                         total = sum(votes.values())
                         linie = []
                         for em in ["1️⃣", "2️⃣", "3️⃣"]:
@@ -162,12 +142,9 @@ class Osad(commands.Cog):
 
             except asyncio.TimeoutError:
                 await self.zakoncz_osad(guild, kanal, skazany, msg, None, votes)
-                break  # Wyjście po timeout
+                return  # Koniec po timeout
 
     async def zakoncz_osad(self, guild, kanal, skazany, msg, mod=None, votes=None):
-        if votes is None:
-            votes = {"1️⃣": 0, "2️⃣": 0, "3️⃣": 0}
-
         total = sum(votes.values())
         if total == 0:
             wynik = "Brak głosów – kara odroczona."
@@ -210,11 +187,6 @@ class Osad(commands.Cog):
             await skazany.timeout(timedelta(days=28), reason=reason_kary)
         elif kara == 3:
             await skazany.ban(reason=reason_kary)
-
-        # Log do kanału "kary"
-        kanal_kary = guild.get_channel(1458853426707304540)
-        if kanal_kary:
-            await kanal_kary.send(embed=embed)
 
         # Usuwamy rolę po wyroku
         rola_skazaniec = discord.utils.get(guild.roles, name="Skazaniec")
