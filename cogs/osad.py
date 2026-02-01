@@ -48,7 +48,6 @@ class Osad(commands.Cog):
             guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, manage_channels=True),
         }
 
-        # Dostęp moderatorów
         for role in guild.roles:
             if role.permissions.manage_guild or role.permissions.ban_members or role.permissions.moderate_members:
                 overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
@@ -60,41 +59,24 @@ class Osad(commands.Cog):
             topic=f"Osąd: {skazany} | 3 ostrzeżenia | {reason}"
         )
 
-        # Ping tylko @Zweryfikowany – bez tekstu
+        # Ping tylko @Zweryfikowany
         rola_zw = discord.utils.get(guild.roles, name="Zweryfikowany")
         ping = f"<@&{rola_zw.id}>" if rola_zw else ""
 
-        # Stały embed – opcje nigdy nie znikają
+        # Embed z ankietą
         embed = discord.Embed(
             title=f"OSĄD – {skazany}",
             description=(
                 f"Użytkownik otrzymał **trzecie ostrzeżenie**.\n"
                 f"Powód ostatniego: {reason}\n\n"
-                f"**Głosuj reakcją (raz na osobę) – opcje poniżej:**"
+                f"**Głosuj reakcją (raz na osobę):**\n"
+                f"1️⃣ Wyrzuć z serwera\n"
+                f"2️⃣ Zmutuj na 28 dni\n"
+                f"3️⃣ Zbanuj"
             ),
             color=0xff0000
         )
-
-        # Stałe opcje – nie znikają
-        embed.add_field(
-            name="Opcje do wyboru:",
-            value=(
-                "1️⃣ Wyrzuć z serwera\n"
-                "2️⃣ Zmutuj na 28 dni\n"
-                "3️⃣ Zbanuj"
-            ),
-            inline=False
-        )
-
-        # Miejsce na wyniki na żywo
-        embed.add_field(name="Wyniki na żywo:", value="Jeszcze nikt nie zagłosował.", inline=False)
-
-        embed.add_field(
-            name="Zamknięcie:",
-            value="❌ Zamknij głosowanie (tylko moderator)",
-            inline=False
-        )
-        embed.set_footer(text="Głosowanie trwa 1 godzinę • Decyduje większość • Głosuj raz")
+        embed.set_footer(text="Głosowanie trwa 1 godzinę • Zamknij ❌ (moderator) • Decyduje większość")
 
         msg = await kanal.send(content=ping, embed=embed)
 
@@ -106,7 +88,7 @@ class Osad(commands.Cog):
             except Exception as e:
                 await kanal.send(f"Błąd reakcji {emoji}: {e}")
 
-        # Głosowanie na żywo
+        # Głosowanie
         votes = {"1️⃣": 0, "2️⃣": 0, "3️⃣": 0}
         voters = {"1️⃣": set(), "2️⃣": set(), "3️⃣": set()}
         voted_users = set()
@@ -127,7 +109,6 @@ class Osad(commands.Cog):
 
                 if emoji_str in votes:
                     if user.id not in voted_users:
-                        # Usuwamy poprzedni głos
                         for em in votes:
                             if user.id in voters[em]:
                                 voters[em].remove(user.id)
@@ -138,18 +119,21 @@ class Osad(commands.Cog):
                         voters[emoji_str].add(user.id)
                         voted_users.add(user.id)
 
-                        # Aktualizacja TYLKO pola wyników
+                        # Aktualizacja wyników
                         total = sum(votes.values())
                         linie = []
                         for em in ["1️⃣", "2️⃣", "3️⃣"]:
                             proc = round(votes[em] / total * 100, 1) if total > 0 else 0
                             linie.append(f"{em} **{votes[em]}** ({proc}%)")
 
-                        # Edytujemy embed – zachowujemy stałe pola
-                        embed.set_field_at(
-                            index=1,
-                            name="Wyniki na żywo:",
-                            value="\n".join(linie) if linie else "Jeszcze nikt nie zagłosował."
+                        embed.description = (
+                            f"Użytkownik otrzymał **trzecie ostrzeżenie**.\n"
+                            f"Powód ostatniego: {reason}\n\n"
+                            f"**Głosuj reakcją (raz na osobę):**\n"
+                            f"1️⃣ Wyrzuć z serwera\n"
+                            f"2️⃣ Zmutuj na 28 dni\n"
+                            f"3️⃣ Zbanuj\n\n"
+                            f"**Wyniki na żywo:**\n" + "\n".join(linie)
                         )
                         embed.set_footer(text=f"{total} głosów • Pozostało ~{int(3600 - (asyncio.get_event_loop().time() - start_time)) // 60} min")
                         await msg.edit(embed=embed)
@@ -163,15 +147,6 @@ class Osad(commands.Cog):
     async def zakoncz_osad(self, guild, kanal, skazany, msg, mod=None, votes=None):
         if votes is None:
             votes = {"1️⃣": 0, "2️⃣": 0, "3️⃣": 0}
-
-        # Odświeżamy msg
-        msg = await kanal.fetch_message(msg.id)
-
-        # Aktualizujemy głosy z reakcji
-        for r in msg.reactions:
-            if r.emoji in votes:
-                users = [u async for u in r.users() if u != self.bot.user and u != skazany]
-                votes[r.emoji] = len(users)
 
         total = sum(votes.values())
         if total == 0:
