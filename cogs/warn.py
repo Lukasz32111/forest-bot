@@ -8,8 +8,8 @@ import aiohttp
 import asyncio
 
 # Zmienne środowiskowe – dodaj w panelu hosta
-JSONBIN_ID = os.getenv("697f8cb343b1c97be95da3bd")
-JSONBIN_KEY = os.getenv("$2a$10$28OLRCkFBrvrj2q.WKo7JeHUGKrp0ISyujHzguxBM82RP8r3eGzZ6")
+JSONBIN_ID = os.getenv(697f8cb343b1c97be95da3bd)
+JSONBIN_KEY = os.getenv($2a$10$28OLRCkFBrvrj2q.WKo7JeHUGKrp0ISyujHzguxBM82RP8r3eGzZ6)
 JSONBIN_URL = f"https://api.jsonbin.io/v3/b/{JSONBIN_ID}"
 
 class Warn(commands.Cog):
