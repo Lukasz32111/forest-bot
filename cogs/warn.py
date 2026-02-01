@@ -4,53 +4,56 @@ from discord.ext import commands
 import json
 import os
 from datetime import datetime
+import aiohttp
+import asyncio
 
-WARN_FILE = "warns.json"
+# Zmienne środowiskowe – dodaj w panelu hosta
+JSONBIN_ID = os.getenv("697f8cb343b1c97be95da3bd")
+JSONBIN_KEY = os.getenv("$2a$10$28OLRCkFBrvrj2q.WKo7JeHUGKrp0ISyujHzguxBM82RP8r3eGzZ6")
+JSONBIN_URL = f"https://api.jsonbin.io/v3/b/{JSONBIN_ID}"
 
 class Warn(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.warns = self.load_warns()
-        print(f"[WARN] Załadowano {len(self.warns)} użytkowników z ostrzeżeniami")
+        self.warns = {}
+        asyncio.create_task(self.load_warns_from_jsonbin())
 
-    def load_warns(self):
-        if not os.path.exists(WARN_FILE):
-            print(f"[WARN] Plik {WARN_FILE} NIE ISTNIEJE – tworzę pusty.")
+    async def load_warns_from_jsonbin(self):
+        if not JSONBIN_ID or not JSONBIN_KEY:
+            print("[WARN] Brak JSONBIN_ID lub JSONBIN_KEY w zmiennych środowiskowych – używam pamięci")
+            return
+
+        async with aiohttp.ClientSession() as session:
+            headers = {"X-Master-Key": JSONBIN_KEY}
             try:
-                with open(WARN_FILE, 'w', encoding='utf-8') as f:
-                    json.dump({}, f)
-                print(f"[WARN] Utworzono pusty plik {WARN_FILE}")
+                async with session.get(JSONBIN_URL, headers=headers) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        self.warns = data['record']
+                        print(f"[WARN] Załadowano {len(self.warns)} użytkowników z JSONBin")
+                    else:
+                        print(f"[WARN] Błąd ładowania JSONBin: {resp.status} – {await resp.text()}")
             except Exception as e:
-                print(f"[WARN] BŁĄD TWORZENIA PLIKU {WARN_FILE}: {e}")
-                print(f"[WARN] Sprawdź uprawnienia zapisu w katalogu /app/")
-            return {}
+                print(f"[WARN] Błąd połączenia z JSONBin: {e}")
 
-        try:
-            with open(WARN_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                print(f"[WARN] Plik {WARN_FILE} załadowany – {len(data)} użytkowników")
-                return data
-        except json.JSONDecodeError:
-            print(f"[WARN] Plik {WARN_FILE} USZKODZONY – tworzę nowy pusty.")
+    async def save_warns_to_jsonbin(self):
+        if not JSONBIN_ID or not JSONBIN_KEY:
+            print("[WARN] Brak JSONBIN – nie zapisuję")
+            return
+
+        async with aiohttp.ClientSession() as session:
+            headers = {
+                "Content-Type": "application/json",
+                "X-Master-Key": JSONBIN_KEY
+            }
             try:
-                with open(WARN_FILE, 'w', encoding='utf-8') as f:
-                    json.dump({}, f)
+                async with session.put(JSONBIN_URL, headers=headers, json=self.warns) as resp:
+                    if resp.status in (200, 201):
+                        print(f"[WARN] Zapisano {len(self.warns)} użytkowników do JSONBin")
+                    else:
+                        print(f"[WARN] Błąd zapisu JSONBin: {resp.status} – {await resp.text()}")
             except Exception as e:
-                print(f"[WARN] BŁĄD TWORZENIA NOWEGO PLIKU: {e}")
-            return {}
-        except Exception as e:
-            print(f"[WARN] Błąd ładowania {WARN_FILE}: {e}")
-            return {}
-
-    def save_warns(self):
-        try:
-            with open(WARN_FILE, 'w', encoding='utf-8') as f:
-                json.dump(self.warns, f, indent=4, ensure_ascii=False)
-            print(f"[WARN] Zapisano {len(self.warns)} użytkowników do {WARN_FILE}")
-        except PermissionError:
-            print(f"[WARN] BRAK UPRAWNIEŃ DO ZAPISU PLIKU {WARN_FILE}! Sprawdź katalog i prawa dostępu.")
-        except Exception as e:
-            print(f"[WARN] Błąd zapisu {WARN_FILE}: {e}")
+                print(f"[WARN] Błąd zapisu do JSONBin: {e}")
 
     @commands.command(name="ostrzeżenie", aliases=["ostrzeg", "warn"])
     @commands.has_permissions(manage_messages=True)
@@ -71,7 +74,7 @@ class Warn(commands.Cog):
             "date": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
         }
         self.warns[user_id].append(warn_data)
-        self.save_warns()
+        await self.save_warns_to_jsonbin()
 
         count = len(self.warns[user_id])
         await ctx.send(f"{member.mention} otrzymał **{count}. ostrzeżenie**.\nPowód: {reason}\nWydane przez: {ctx.author.mention}")
@@ -106,12 +109,12 @@ class Warn(commands.Cog):
 
         if numer is None:
             removed = self.warns[user_id].pop()
-            self.save_warns()
+            await self.save_warns_to_jsonbin()
             await ctx.send(f"Usunięto ostatnie ostrzeżenie ({removed['reason']}) od {member.mention}.\nPozostało: {len(self.warns[user_id])}")
         else:
             if 1 <= numer <= len(self.warns[user_id]):
                 removed = self.warns[user_id].pop(numer - 1)
-                self.save_warns()
+                await self.save_warns_to_jsonbin()
                 await ctx.send(f"Usunięto ostrzeżenie #{numer} ({removed['reason']}) od {member.mention}.\nPozostało: {len(self.warns[user_id])}")
             else:
                 await ctx.send(f"Nieprawidłowy numer ostrzeżenia. Aktualna liczba: {len(self.warns[user_id])}")
