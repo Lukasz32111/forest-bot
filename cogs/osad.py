@@ -68,9 +68,9 @@ class Osad(commands.Cog):
         votes = {"1️⃣": 0, "2️⃣": 0, "3️⃣": 0}
         voters = {"1️⃣": set(), "2️⃣": set(), "3️⃣": set()}
         voted_users = set()
+        closed = False
 
-        # Główna pętla głosowania
-        while True:
+        while not closed:
             try:
                 reaction, user = await self.bot.wait_for(
                     "reaction_add",
@@ -94,12 +94,13 @@ class Osad(commands.Cog):
                     await msg.remove_reaction("👥", user)
                     continue
 
-                # Zamknięcie przez moderatora
+                # Zamknięcie
                 if emoji_str == "❌" and user.guild_permissions.manage_messages:
+                    closed = True
                     await self.zakoncz_osad(guild, kanal, skazany, msg, user, votes)
-                    return
+                    break
 
-                # Normalny głos
+                # Głos
                 if emoji_str in votes:
                     if user.id not in voted_users:
                         # Usuwamy poprzedni głos
@@ -136,8 +137,9 @@ class Osad(commands.Cog):
                     await msg.remove_reaction(emoji_str, user)
 
             except asyncio.TimeoutError:
+                closed = True
                 await self.zakoncz_osad(guild, kanal, skazany, msg, None, votes)
-                return
+                break
 
     async def zakoncz_osad(self, guild, kanal, skazany, msg, mod=None, votes=None):
         total = sum(votes.values())
