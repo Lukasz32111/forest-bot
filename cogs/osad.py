@@ -63,7 +63,7 @@ class Osad(commands.Cog):
         rola_zw = discord.utils.get(guild.roles, name="Zweryfikowany")
         ping = f"<@&{rola_zw.id}>" if rola_zw else ""
 
-        # Embed z ankietą
+        # Embed z ankietą – opcje stałe
         embed = discord.Embed(
             title=f"OSĄD – {skazany}",
             description=(
@@ -72,23 +72,24 @@ class Osad(commands.Cog):
                 f"**Głosuj reakcją (raz na osobę):**\n"
                 f"1️⃣ Wyrzuć z serwera\n"
                 f"2️⃣ Zmutuj na 28 dni\n"
-                f"3️⃣ Zbanuj"
+                f"3️⃣ Zbanuj\n\n"
+                f"Zamknij ❌ (tylko moderator)"
             ),
             color=0xff0000
         )
-        embed.set_footer(text="Głosowanie trwa 1 godzinę • Zamknij ❌ (moderator) • Decyduje większość")
+        embed.set_footer(text="Głosowanie trwa 1 godzinę • Decyduje większość • 👥 kto głosował")
 
         msg = await kanal.send(content=ping, embed=embed)
 
         # Reakcje
-        for emoji in ["1️⃣", "2️⃣", "3️⃣", "❌"]:
+        for emoji in ["1️⃣", "2️⃣", "3️⃣", "❌", "👥"]:
             try:
                 await msg.add_reaction(emoji)
                 await asyncio.sleep(0.5)
             except Exception as e:
                 await kanal.send(f"Błąd reakcji {emoji}: {e}")
 
-        # Głosowanie
+        # Głosowanie na żywo
         votes = {"1️⃣": 0, "2️⃣": 0, "3️⃣": 0}
         voters = {"1️⃣": set(), "2️⃣": set(), "3️⃣": set()}
         voted_users = set()
@@ -103,12 +104,28 @@ class Osad(commands.Cog):
                 )
 
                 emoji_str = str(reaction.emoji)
+
+                # 👥 – kto głosował (tylko dla moderatorów)
+                if emoji_str == "👥" and user.guild_permissions.manage_messages:
+                    lista = []
+                    for em, usr_set in voters.items():
+                        if usr_set:
+                            opcja = {"1️⃣": "Wyrzuć", "2️⃣": "Zmutuj", "3️⃣": "Zbanuj"}[em]
+                            lista.append(f"{em} → {opcja}: {', '.join([f'<@{u.id}>' for u in usr_set])}")
+                    if lista:
+                        await user.send(f"**Głosy w osądzie {skazany}:**\n" + "\n".join(lista))
+                    else:
+                        await user.send("Nikt jeszcze nie zagłosował.")
+                    await msg.remove_reaction("👥", user)
+                    continue
+
                 if emoji_str == "❌" and user.guild_permissions.manage_messages:
                     await self.zakoncz_osad(guild, kanal, skazany, msg, user, votes)
                     break
 
                 if emoji_str in votes:
                     if user.id not in voted_users:
+                        # Usuwamy poprzedni głos
                         for em in votes:
                             if user.id in voters[em]:
                                 voters[em].remove(user.id)
@@ -133,9 +150,10 @@ class Osad(commands.Cog):
                             f"1️⃣ Wyrzuć z serwera\n"
                             f"2️⃣ Zmutuj na 28 dni\n"
                             f"3️⃣ Zbanuj\n\n"
-                            f"**Wyniki na żywo:**\n" + "\n".join(linie)
+                            f"**Wyniki na żywo:**\n" + "\n".join(linie) + "\n\n"
+                            f"Zamknij ❌ (moderator)"
                         )
-                        embed.set_footer(text=f"{total} głosów • Pozostało ~{int(3600 - (asyncio.get_event_loop().time() - start_time)) // 60} min")
+                        embed.set_footer(text=f"{total} głosów • Pozostało ~{int(3600 - (asyncio.get_event_loop().time() - start_time)) // 60} min • 👥 kto głosował")
                         await msg.edit(embed=embed)
 
                     await msg.remove_reaction(emoji_str, user)
@@ -181,24 +199,32 @@ class Osad(commands.Cog):
         elif kara == 3:
             await skazany.ban(reason=reason_kary)
 
-        # Log do kanału "kary"
-        kanal_kary = discord.utils.get(guild.text_channels, name="kary")
-        if kanal_kary:
-            await kanal_kary.send(f"{skazany.mention} → {wynik.upper()} • Społeczność zadecydowała")
+        # Log do kanału "kary" (ID 1458853426707304540)
+        try:
+            kanal_kary = guild.get_channel(1458853426707304540)
+            if kanal_kary:
+                await kanal_kary.send(embed=embed)
+            else:
+                print("Kanał o ID 1458853426707304540 nie istnieje lub bot nie ma dostępu.")
+        except Exception as e:
+            print(f"Błąd wysyłania do kanału kary: {e}")
 
         # Usuwamy rolę po wyroku
         rola_skazaniec = discord.utils.get(guild.roles, name="Skazaniec")
         if rola_skazaniec:
             await skazany.remove_roles(rola_skazaniec)
 
-        # Archiwizacja
-        await self.archiwizuj_kanal(kanal, discord.utils.get(guild.categories, name="Archiwum Osądów"))
-
-    async def archiwizuj_kanal(self, kanal, kategoria_archiwum):
-        if kategoria_archiwum:
-            await kanal.edit(category=kategoria_archiwum, name=f"arch-{kanal.name}")
-            await kanal.set_permissions(kanal.guild.default_role, send_messages=False, add_reactions=False)
-            await kanal.send("Kanał przeniesiony do archiwum – tylko do odczytu.")
+        # Archiwizacja – teraz na pewno
+        archiwum = discord.utils.get(guild.categories, name="Archiwum Osądów")
+        if archiwum:
+            try:
+                await kanal.edit(category=archiwum, name=f"arch-{kanal.name}")
+                await kanal.set_permissions(guild.default_role, send_messages=False, add_reactions=False)
+                await kanal.send("Kanał przeniesiony do archiwum – tylko do odczytu.")
+            except Exception as e:
+                await kanal.send(f"Błąd przeniesienia do archiwum: {e}")
+        else:
+            await kanal.send("Brak kategorii Archiwum Osądów – kanał pozostaje w Sądy.")
 
 async def setup(bot):
     await bot.add_cog(Osad(bot))
