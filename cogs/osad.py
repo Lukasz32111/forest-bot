@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands
 import asyncio
 from datetime import timedelta
+from collections import Counter
 
 class Osad(commands.Cog):
     def __init__(self, bot):
@@ -14,26 +15,55 @@ class Osad(commands.Cog):
         kategoria_sady = discord.utils.get(guild.categories, name="Sądy") or await guild.create_category("Sądy")
         kategoria_archiwum = discord.utils.get(guild.categories, name="Archiwum Osądów") or await guild.create_category("Archiwum Osądów")
 
-        # Rola Skazaniec
-        rola_skazaniec = discord.utils.get(guild.roles, name="Skazaniec") or await guild.create_role(
-            name="Skazaniec", color=discord.Color.red(), hoist=True
-        )
+        # Rola Skazaniec – blokuje pisanie wszędzie poza sądem
+        rola_skazaniec = discord.utils.get(guild.roles, name="Skazaniec")
+        if not rola_skazaniec:
+            rola_skazaniec = await guild.create_role(
+                name="Skazaniec",
+                color=discord.Color.red(),
+                hoist=True,
+                permissions=discord.Permissions.none()
+            )
+
         await skazany.add_roles(rola_skazaniec)
 
-        # Kanał sądowy
+        # Blokada pisania globalna (oprócz kanału sądowego)
+        for channel in guild.text_channels:
+            if channel.category_id != kategoria_sady.id:  # wyjątek tylko dla sądów
+                try:
+                    await channel.set_permissions(
+                        rola_skazaniec,
+                        send_messages=False,
+                        add_reactions=False,
+                        read_messages=False  # nawet czytanie blokujemy poza sądem
+                    )
+                except:
+                    pass
+
+        # Kanał sądowy – nadpisujemy uprawnienia tylko dla tego kanału
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             rola_skazaniec: discord.PermissionOverwrite(
-                view_channel=True, send_messages=False, read_message_history=True, add_reactions=False
+                view_channel=True,
+                send_messages=False,
+                read_message_history=True,
+                add_reactions=False
             ),
-            guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, manage_channels=True),
+            guild.me: discord.PermissionOverwrite(
+                view_channel=True,
+                send_messages=True,
+                manage_channels=True,
+                manage_messages=True
+            ),
         }
 
-        # Dostęp dla moderatorów
+        # Moderatorzy mają dostęp
         for role in guild.roles:
-            if role.permissions.manage_guild or role.permissions.ban_members:
+            if role.permissions.manage_guild or role.permissions.ban_members or role.permissions.moderate_members:
                 overwrites[role] = discord.PermissionOverwrite(
-                    view_channel=True, send_messages=True, read_message_history=True
+                    view_channel=True,
+                    send_messages=True,
+                    read_message_history=True
                 )
 
         kanal = await guild.create_text_channel(
@@ -43,75 +73,121 @@ class Osad(commands.Cog):
             topic=f"Osąd: {skazany} | 3 ostrzeżenia | {reason}"
         )
 
-        # Ping tylko @Zweryfikowany (bez dodatkowego tekstu)
+        # Ping tylko roli Zweryfikowany – bez żadnego tekstu
         rola_zw = discord.utils.get(guild.roles, name="Zweryfikowany")
         ping = f"<@&{rola_zw.id}>" if rola_zw else ""
 
-        # Czysty embed – bez zbędnych pól
+        # Embed + ankieta jak w Twoim stylu
         embed = discord.Embed(
             title=f"OSĄD – {skazany}",
             description=(
                 f"Użytkownik otrzymał **trzecie ostrzeżenie**.\n"
                 f"Powód ostatniego: {reason}\n\n"
-                f"**Co zrobić?** Głosuj reakcją (raz na osobę):"
+                f"**Głosuj reakcją (raz na osobę):**\n"
+                f"1️⃣ Wyrzuć z serwera\n"
+                f"2️⃣ Zmutuj na 28 dni\n"
+                f"3️⃣ Zbanuj\n\n"
+                f"Zamknij ❌ (tylko moderator)"
             ),
-            color=discord.Color.red()
+            color=0xff0000
         )
-        embed.add_field(name="1 – Wyrzuć z serwera", value="\u200b", inline=False)
-        embed.add_field(name="2 – Zmutuj na 28 dni", value="\u200b", inline=False)
-        embed.add_field(name="3 – Zbanuj", value="\u200b", inline=False)
-        embed.add_field(name="X – Zamknij głosowanie (tylko moderator)", value="\u200b", inline=False)
-        embed.set_footer(text="Decyduje większość • Zamknięcie przez moderatora")
+        embed.set_footer(text="Głosowanie trwa dokładnie 1 godzinę • Decyduje większość")
 
         msg = await kanal.send(content=ping, embed=embed)
 
-        # Dodajemy reakcje – zwykłe cyfry + X (bezpieczne)
-        reakcje = ["1️⃣", "2️⃣", "3️⃣", "❌"]  # ❌ zamiast X – działa lepiej
-        for emoji in reakcje:
+        # Dodajemy reakcje
+        for emoji in ["1️⃣", "2️⃣", "3️⃣", "❌"]:
             try:
                 await msg.add_reaction(emoji)
-                await asyncio.sleep(0.5)  # unikamy rate limitu
-            except discord.HTTPException as e:
-                await kanal.send(f"Błąd dodawania reakcji {emoji}: {e}")
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                await kanal.send(f"Błąd reakcji: {e}")
 
-        # Czekamy na ❌ od moderatora
-        def check(r, u):
-            return str(r.emoji) in ["❌", "X"] and r.message.id == msg.id and u.guild_permissions.manage_messages
+        # Logika głosowania jak w Twojej ankiecie
+        votes = {"1️⃣": 0, "2️⃣": 0, "3️⃣": 0}
+        voters = {"1️⃣": set(), "2️⃣": set(), "3️⃣": set()}
+        voted_users = set()
 
-        try:
-            _, mod = await self.bot.wait_for("reaction_add", timeout=86400, check=check)
-            await self.zakoncz_osad(guild, kanal, skazany, msg, mod)
-        except asyncio.TimeoutError:
-            await kanal.send("Osąd zakończony automatycznie – bez kary.")
-            await self.archiwizuj_kanal(kanal, kategoria_archiwum)
+        start_time = asyncio.get_event_loop().time()
 
-    async def zakoncz_osad(self, guild, kanal, skazany, msg, mod):
+        while True:
+            try:
+                reaction, user = await self.bot.wait_for(
+                    "reaction_add",
+                    timeout=3600,
+                    check=lambda r, u: r.message.id == msg.id and not u.bot
+                )
+
+                emoji_str = str(reaction.emoji)
+                if emoji_str == "❌" and user.guild_permissions.manage_messages:
+                    await self.zakoncz_osad(guild, kanal, skazany, msg, user)
+                    break
+
+                if emoji_str in votes:
+                    if user.id not in voted_users:
+                        # Usuwamy poprzedni głos jeśli był
+                        for em in votes:
+                            if user.id in voters[em]:
+                                voters[em].remove(user.id)
+                                votes[em] -= 1
+                                break
+
+                        votes[emoji_str] += 1
+                        voters[emoji_str].add(user.id)
+                        voted_users.add(user.id)
+
+                        # Aktualizacja embeda na żywo
+                        total = sum(votes.values())
+                        linie = []
+                        for em in ["1️⃣", "2️⃣", "3️⃣"]:
+                            proc = round(votes[em] / total * 100, 1) if total > 0 else 0
+                            linie.append(f"{em} **{votes[em]}** ({proc}%)")
+
+                        embed.description = (
+                            f"Użytkownik otrzymał **trzecie ostrzeżenie**.\n"
+                            f"Powód ostatniego: {reason}\n\n"
+                            f"**Wyniki na żywo** (głosuj raz)\n\n" + "\n".join(linie) + "\n\n"
+                            f"Zamknij ❌ (tylko moderator)"
+                        )
+                        embed.set_footer(text=f"{total} głosów • Pozostało ~{int(3600 - (asyncio.get_event_loop().time() - start_time)) // 60} min")
+                        await msg.edit(embed=embed)
+
+                    await msg.remove_reaction(emoji_str, user)
+
+            except asyncio.TimeoutError:
+                await self.zakoncz_osad(guild, kanal, skazany, msg, None)
+                break
+
+    async def zakoncz_osad(self, guild, kanal, skazany, msg, mod=None):
         msg = await kanal.fetch_message(msg.id)
 
-        votes = {1: 0, 2: 0, 3: 0}
+        votes = {"1️⃣": 0, "2️⃣": 0, "3️⃣": 0}
         for r in msg.reactions:
-            if r.emoji in ["1️⃣", "2️⃣", "3️⃣"]:
-                idx = int(r.emoji[0])
+            if r.emoji in votes:
                 users = [u async for u in r.users() if u != self.bot.user and u != skazany]
-                votes[idx] = len(users)
+                votes[r.emoji] = len(users)
 
-        if sum(votes.values()) == 0:
+        total = sum(votes.values())
+        if total == 0:
             wynik = "Brak głosów – kara odroczona."
             kara = None
         else:
             max_v = max(votes.values())
-            wygrane = [k for k, v in votes.items() if v == max_v]
-            if len(wygrane) > 1:
+            wygrane_emoji = [k for k, v in votes.items() if v == max_v]
+            if len(wygrane_emoji) > 1:
                 wynik = "Remis – kara odroczona."
                 kara = None
             else:
-                kara = wygrane[0]
-                wynik = ["Wyrzucony", "Zmutowany na 28 dni", "Zbanowany"][kara-1]
+                idx = "1️⃣2️⃣3️⃣".index(wygrane_emoji[0])
+                kara = idx + 1
+                wynik = ["Wyrzucony", "Zmutowany na 28 dni", "Zbanowany"][idx]
 
         embed = discord.Embed(
             title="WYROK OSĄDU",
-            description=f"{skazany.mention} → **{wynik or 'kara odroczona'}**\nZamknął: {mod.mention}\nPowód: Społeczność tak zadecydowała",
-            color=discord.Color.red()
+            description=f"{skazany.mention} → **{wynik or 'kara odroczona'}**\n"
+                        f"{'Zamknął: ' + mod.mention if mod else 'Zamknięto automatycznie po 1h'}\n"
+                        f"Powód: Społeczność tak zadecydowała",
+            color=0xff0000
         )
         await kanal.send(embed=embed)
 
@@ -128,6 +204,11 @@ class Osad(commands.Cog):
         kanal_kary = discord.utils.get(guild.text_channels, name="kary")
         if kanal_kary:
             await kanal_kary.send(f"{skazany.mention} → {wynik.upper()} • Społeczność zadecydowała")
+
+        # Usuwamy rolę Skazaniec po wyroku
+        rola_skazaniec = discord.utils.get(guild.roles, name="Skazaniec")
+        if rola_skazaniec:
+            await skazany.remove_roles(rola_skazaniec)
 
         # Archiwizacja
         await self.archiwizuj_kanal(kanal, discord.utils.get(guild.categories, name="Archiwum Osądów"))
