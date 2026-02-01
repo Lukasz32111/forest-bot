@@ -1,55 +1,18 @@
 # cogs/warn.py
 import discord
 from discord.ext import commands
-import json
-import os
 from datetime import datetime
-
-WARN_FILE = "warns.json"
+from replit import db
 
 class Warn(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.warns = self.load_warns()
-        print(f"[WARN] Załadowano {len(self.warns)} użytkowników z ostrzeżeniami z pliku {WARN_FILE}")
-
-    def load_warns(self):
-        if not os.path.exists(WARN_FILE):
-            print(f"[WARN] Plik {WARN_FILE} nie istnieje – tworzę pusty.")
-            try:
-                with open(WARN_FILE, 'w', encoding='utf-8') as f:
-                    json.dump({}, f)
-                print(f"[WARN] Utworzono pusty plik {WARN_FILE}")
-            except Exception as e:
-                print(f"[WARN] Błąd tworzenia pliku {WARN_FILE}: {e}")
-            return {}
-
-        try:
-            with open(WARN_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                print(f"[WARN] Plik {WARN_FILE} załadowany pomyślnie")
-                return data
-        except json.JSONDecodeError:
-            print(f"[WARN] Plik {WARN_FILE} uszkodzony – tworzę nowy pusty.")
-            try:
-                with open(WARN_FILE, 'w', encoding='utf-8') as f:
-                    json.dump({}, f)
-            except Exception as e:
-                print(f"[WARN] Błąd tworzenia nowego pliku: {e}")
-            return {}
-        except Exception as e:
-            print(f"[WARN] Nieznany błąd ładowania {WARN_FILE}: {e}")
-            return {}
+        self.warns = db.get('warns', {})
+        print(f"[WARN] Załadowano {len(self.warns)} użytkowników z Replit DB")
 
     def save_warns(self):
-        try:
-            with open(WARN_FILE, 'w', encoding='utf-8') as f:
-                json.dump(self.warns, f, indent=4, ensure_ascii=False)
-            print(f"[WARN] Zapisano zmiany w {WARN_FILE} ({len(self.warns)} użytkowników)")
-        except PermissionError:
-            print(f"[WARN] Brak uprawnień do zapisu pliku {WARN_FILE}! Sprawdź katalog i prawa dostępu.")
-        except Exception as e:
-            print(f"[WARN] Błąd zapisu {WARN_FILE}: {e}")
+        db['warns'] = self.warns
+        print(f"[WARN] Zapisano {len(self.warns)} użytkowników w Replit DB")
 
     @commands.command(name="ostrzeżenie", aliases=["ostrzeg", "warn"])
     @commands.has_permissions(manage_messages=True)
