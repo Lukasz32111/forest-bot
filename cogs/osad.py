@@ -9,18 +9,12 @@ class Osad(commands.Cog):
         self.bot = bot
 
     async def rozpocznij_osad(self, guild: discord.Guild, skazany: discord.Member, reason: str):
-        """Uruchamia osąd po 3. warnie"""
         kategoria_sady = discord.utils.get(guild.categories, name="Sądy") or await guild.create_category("Sądy")
         kategoria_archiwum = discord.utils.get(guild.categories, name="Archiwum Osądów") or await guild.create_category("Archiwum Osądów")
 
         rola_skazaniec = discord.utils.get(guild.roles, name="Skazaniec")
         if not rola_skazaniec:
-            rola_skazaniec = await guild.create_role(
-                name="Skazaniec",
-                color=discord.Color.red(),
-                hoist=True,
-                permissions=discord.Permissions.none()
-            )
+            rola_skazaniec = await guild.create_role(name="Skazaniec", color=discord.Color.red(), hoist=True, permissions=discord.Permissions.none())
 
         await skazany.add_roles(rola_skazaniec)
 
@@ -53,17 +47,13 @@ class Osad(commands.Cog):
 
         embed = discord.Embed(
             title=f"OSĄD – {skazany}",
-            description=(
-                f"Użytkownik otrzymał **trzecie ostrzeżenie**.\n"
-                f"Powód ostatniego: {reason}\n\n"
-                f"**Głosuj reakcją (raz na osobę):**\n"
-                f"1️⃣ Wyrzuć z serwera\n"
-                f"2️⃣ Zmutuj na 28 dni\n"
-                f"3️⃣ Zbanuj\n\n"
-                f"Zamknij ❌ (tylko moderator)"
-            ),
+            description=f"Użytkownik otrzymał **trzecie ostrzeżenie**.\nPowód ostatniego: {reason}\n\n**Co zrobić? Głosuj reakcją (raz na osobę):**",
             color=0xff0000
         )
+        embed.add_field(name="1️⃣", value="Wyrzuć z serwera", inline=False)
+        embed.add_field(name="2️⃣", value="Zmutuj na 28 dni", inline=False)
+        embed.add_field(name="3️⃣", value="Zbanuj", inline=False)
+        embed.add_field(name="X", value="Zamknij głosowanie (tylko moderator)", inline=False)
         embed.set_footer(text="Głosowanie trwa 1 godzinę • Decyduje większość • 👥 kto głosował")
 
         msg = await kanal.send(content=ping, embed=embed)
@@ -78,8 +68,8 @@ class Osad(commands.Cog):
         votes = {"1️⃣": 0, "2️⃣": 0, "3️⃣": 0}
         voters = {"1️⃣": set(), "2️⃣": set(), "3️⃣": set()}
         voted_users = set()
-        start_time = asyncio.get_event_loop().time()
 
+        # Główna pętla głosowania
         while True:
             try:
                 reaction, user = await self.bot.wait_for(
@@ -90,6 +80,7 @@ class Osad(commands.Cog):
 
                 emoji_str = str(reaction.emoji)
 
+                # 👥 kto głosował
                 if emoji_str == "👥" and user.guild_permissions.manage_messages:
                     lista = []
                     for em, usr_set in voters.items():
@@ -103,12 +94,15 @@ class Osad(commands.Cog):
                     await msg.remove_reaction("👥", user)
                     continue
 
+                # Zamknięcie przez moderatora
                 if emoji_str == "❌" and user.guild_permissions.manage_messages:
                     await self.zakoncz_osad(guild, kanal, skazany, msg, user, votes)
-                    return  # Koniec pętli po zamknięciu
+                    return
 
+                # Normalny głos
                 if emoji_str in votes:
                     if user.id not in voted_users:
+                        # Usuwamy poprzedni głos
                         for em in votes:
                             if user.id in voters[em]:
                                 voters[em].remove(user.id)
@@ -119,6 +113,7 @@ class Osad(commands.Cog):
                         voters[emoji_str].add(user.id)
                         voted_users.add(user.id)
 
+                        # Aktualizacja embeda
                         total = sum(votes.values())
                         linie = []
                         for em in ["1️⃣", "2️⃣", "3️⃣"]:
@@ -142,7 +137,7 @@ class Osad(commands.Cog):
 
             except asyncio.TimeoutError:
                 await self.zakoncz_osad(guild, kanal, skazany, msg, None, votes)
-                return  # Koniec po timeout
+                return
 
     async def zakoncz_osad(self, guild, kanal, skazany, msg, mod=None, votes=None):
         total = sum(votes.values())
@@ -174,10 +169,8 @@ class Osad(commands.Cog):
             kanal_kary = guild.get_channel(1458853426707304540)
             if kanal_kary:
                 await kanal_kary.send(embed=embed)
-            else:
-                await kanal.send("Kanał kary (ID 1458853426707304540) nie znaleziony.")
         except Exception as e:
-            await kanal.send(f"Błąd wysyłania wyroku: {e}")
+            print(f"Błąd wysyłania wyroku: {e}")
 
         # Wykonanie kary
         reason_kary = "Społeczność tak zadecydowała"
