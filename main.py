@@ -25,7 +25,6 @@ async def on_ready():
     print(f" Bot: {bot.user}")
     print(f" Serwery: {len(bot.guilds)}")
     print(f" Prefix: {PREFIX}")
-    print(f" FFmpeg: {'znaleziony ✓' if ffmpeg_ok else 'BRAK ✗ – muzyka nie będzie działać!'}")
     
     # ────────────── DIAGNOSTYKA ──────────────
     print("\nZaładowane komendy (powinno być min. 1–2):")
@@ -69,6 +68,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
