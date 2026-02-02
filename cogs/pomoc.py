@@ -93,7 +93,6 @@ class Pomoc(commands.Cog):
                 "`wycisz @osoba <czas> [powód]` – wycisza (do 28 dni, np. 30m, 2h, 7d)\n"
                 "`odcisz @osoba [powód]` – zdejmuje timeout\n"
                 "`ostrzeżenie @osoba [powód]` – daje ostrzeżenie\n"
-                "`ostrzeżenia [@osoba]` – pokazuje ostrzeżenia danej osoby\n"
                 "`usuńostrzeżenie @osoba [numer]` – usuwa ostrzeżenie (ostatnie lub konkretne)\n"
                 "`czyść [ilość]` – usuwa wiadomości (domyślnie 50, max 1000)\n"
                 "`ankieta \"Pytanie?\" \"Opcja1\" \"Opcja2\" musisz dodać _ do pytania np: siema_chcę_ktoś_pograć?` – tworzy ankietę z reakcjami (2–10 opcji)\n"
